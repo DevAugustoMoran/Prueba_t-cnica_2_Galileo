@@ -1,0 +1,13 @@
+# Ignorar configuraciones de editores de codigo
+.vscode/
+.idea/
+
+# Ignorar archivos del sistema operativo
+.DS_Store
+Thumbs.db
+
+# Ignorar futuras dependencias para la automatizacion de QA
+node_modules/
+/qa_automation/node_modules/
+playwright-report/
+test-results/

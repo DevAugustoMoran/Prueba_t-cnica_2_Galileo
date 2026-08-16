@@ -1,0 +1,24 @@
+services:
+  mariadb:
+    image: mariadb:10.11
+    environment:
+      - MARIADB_USER=usuariomoodle
+      - MARIADB_PASSWORD=clavesegura
+      - MARIADB_DATABASE=moodle_db
+      - MARIADB_ROOT_PASSWORD=claveroot
+    volumes:
+      - mariadb_data:/var/lib/mysql
+
+  moodle:
+    build: .
+    ports:
+      - "8080:80"
+    volumes:
+      - moodledata:/var/www/moodledata
+      - ./src_plugin/local_mejoras_examen:/var/www/html/local/mejoras_examen
+    depends_on:
+      - mariadb
+
+volumes:
+  mariadb_data:
+  moodledata:
