@@ -1,0 +1,16 @@
+2026-08-17 09:06:41 - EVENTO recibido: mod_quiz\event\attempt_submitted objectid=39
+2026-08-17 09:06:41 - === Inicio procesar_penalizacion_diferida, intento_id=39 ===
+2026-08-17 09:06:41 - porcentaje_penalizacion=10
+2026-08-17 09:06:41 - timestart=1786953896 timefinish=1786954001 timelimit=60 timeclose=0 graceperiod=3600 overduehandling=graceperiod
+2026-08-17 09:06:41 - deadline_por_tiempo=1786953956 deadline_por_cierre=0 deadline_final=1786953956 gracewindow=3600
+2026-08-17 09:06:41 - es_tardia=1 dentro_gracia=1
+2026-08-17 09:06:41 - nota_bruta_original=0
+2026-08-17 09:06:41 - CORTE: nota_bruta_original <= 0 (probablemente falta calificación manual)
+2026-08-17 09:13:34 - EVENTO recibido: mod_quiz\event\attempt_submitted objectid=40
+2026-08-17 09:13:34 - === Inicio procesar_penalizacion_diferida, intento_id=40 ===
+2026-08-17 09:13:34 - porcentaje_penalizacion=10
+2026-08-17 09:13:34 - timestart=1786954342 timefinish=1786954414 timelimit=60 timeclose=0 graceperiod=3600 overduehandling=graceperiod
+2026-08-17 09:13:34 - deadline_por_tiempo=1786954402 deadline_por_cierre=0 deadline_final=1786954402 gracewindow=3600
+2026-08-17 09:13:34 - es_tardia=1 dentro_gracia=1
+2026-08-17 09:13:34 - nota_bruta_original=0
+2026-08-17 09:13:34 - CORTE: nota_bruta_original <= 0 (probablemente falta calificación manual)

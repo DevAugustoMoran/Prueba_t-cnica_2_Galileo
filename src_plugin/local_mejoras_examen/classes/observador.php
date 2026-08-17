@@ -44,42 +44,68 @@ class observador {
     public static function aplicar_penalizacion_gracia(\core\event\base $evento) {
         global $DB;
         $intento_id = $evento->objectid;
-        
+
+        self::log_debug("EVENTO recibido: " . get_class($evento) . " objectid={$intento_id}");
+
         // Delegación al final del ciclo de vida para evitar sobreescrituras de Moodle
         \core_shutdown_manager::register_function('\local_mejoras_examen\observador::procesar_penalizacion_diferida', [$intento_id]);
+    }
+
+    // Log temporal de diagnóstico: escribe cada paso de la evaluación a un archivo
+    // dentro del propio plugin, para poder ver exactamente qué rama se está tomando.
+    private static function log_debug($mensaje) {
+        $linea = date('Y-m-d H:i:s') . ' - ' . $mensaje . "\n";
+        file_put_contents(__DIR__ . '/../debug_gracia.txt', $linea, FILE_APPEND);
     }
 
     // Ejecución diferida de la penalización matemática
     public static function procesar_penalizacion_diferida($intento_id) {
         global $DB, $CFG;
 
+        self::log_debug("=== Inicio procesar_penalizacion_diferida, intento_id={$intento_id} ===");
+
         $registro_intento = $DB->get_record('quiz_attempts', ['id' => $intento_id]);
         if (!$registro_intento) {
+            self::log_debug("CORTE: no se encontró quiz_attempts con id={$intento_id}");
             return;
         }
 
         $examen = $DB->get_record('quiz', ['id' => $registro_intento->quiz]);
         if (!$examen) {
+            self::log_debug("CORTE: no se encontró quiz con id={$registro_intento->quiz}");
             return;
         }
 
         $porcentaje_penalizacion = (float) get_config('local_mejoras_examen', 'penalizacion_gracia');
+        self::log_debug("porcentaje_penalizacion={$porcentaje_penalizacion}");
         if ($porcentaje_penalizacion <= 0) {
+            self::log_debug("CORTE: porcentaje_penalizacion <= 0");
             return;
         }
 
-        // Moodle usa el plazo de entrega real (timeclose) y, si existe, la ventana de gracia.
-        // No se debe depender de timelimit, porque muchos exámenes no tienen tiempo límite y aun así
-        // admiten entregas tardías con penalización en la zona de gracia.
-        $deadline = (isset($examen->timeclose) && $examen->timeclose > 0)
+        // El período de gracia de Moodle está atado al vencimiento del timelimit de ESE intento
+        // (timestart + timelimit), no al timeclose general del examen. Si además hay un timeclose
+        // configurado, el deadline real es el que ocurra primero de los dos.
+        $deadline_por_tiempo = (isset($examen->timelimit) && $examen->timelimit > 0)
+            ? ((int) $registro_intento->timestart + (int) $examen->timelimit)
+            : 0;
+
+        $deadline_por_cierre = (isset($examen->timeclose) && $examen->timeclose > 0)
             ? (int) $examen->timeclose
-            : ((isset($examen->timelimit) && $examen->timelimit > 0)
-                ? ((int) $registro_intento->timestart + (int) $examen->timelimit)
-                : 0);
+            : 0;
+
+        $candidatos_deadline = array_filter([$deadline_por_tiempo, $deadline_por_cierre]);
+        $deadline = $candidatos_deadline ? min($candidatos_deadline) : 0;
 
         $gracewindow = (isset($examen->graceperiod) && $examen->graceperiod > 0)
             ? (int) $examen->graceperiod
             : 0;
+
+        self::log_debug("timestart={$registro_intento->timestart} timefinish={$registro_intento->timefinish} "
+            . "timelimit={$examen->timelimit} timeclose={$examen->timeclose} graceperiod={$examen->graceperiod} "
+            . "overduehandling={$examen->overduehandling}");
+        self::log_debug("deadline_por_tiempo={$deadline_por_tiempo} deadline_por_cierre={$deadline_por_cierre} "
+            . "deadline_final={$deadline} gracewindow={$gracewindow}");
 
         // Se aplica sólo si la entrega es tardía pero todavía dentro del periodo de gracia real.
         $es_tardia = $deadline > 0 && $registro_intento->timefinish > $deadline;
@@ -87,12 +113,17 @@ class observador {
             ? ($registro_intento->timefinish <= ($deadline + $gracewindow))
             : $es_tardia;
 
+        self::log_debug("es_tardia=" . ($es_tardia ? '1' : '0') . " dentro_gracia=" . ($dentro_gracia ? '1' : '0'));
+
         if (!$es_tardia || !$dentro_gracia) {
+            self::log_debug("CORTE: no es tardía o no está dentro de gracia");
             return;
         }
 
         $nota_bruta_original = (float) $registro_intento->sumgrades;
+        self::log_debug("nota_bruta_original={$nota_bruta_original}");
         if ($nota_bruta_original <= 0) {
+            self::log_debug("CORTE: nota_bruta_original <= 0 (probablemente falta calificación manual)");
             return;
         }
 
@@ -101,6 +132,7 @@ class observador {
 
         $registro_intento->sumgrades = $nota_bruta_penalizada;
         $DB->update_record('quiz_attempts', $registro_intento);
+        self::log_debug("sumgrades actualizado: {$nota_bruta_original} -> {$nota_bruta_penalizada}");
 
         require_once($CFG->dirroot . '/mod/quiz/locallib.php');
         quiz_save_best_grade($examen, $registro_intento->userid);
@@ -131,11 +163,23 @@ class observador {
             ]);
 
             if ($grade_grade) {
+                // No confiar en que quiz_save_best_grade() ya haya empujado el valor
+                // penalizado a finalgrade: si el registro llegó marcado 'overridden',
+                // grade_update() actualiza rawgrade pero IGNORA finalgrade, dejando la
+                // nota vieja visible en el reporte del calificador aunque el feedback
+                // ya diga lo correcto. Forzamos ambos campos explícitamente acá.
+                $grade_grade->rawgrade = $nueva_nota_escalada;
+                $grade_grade->finalgrade = $nueva_nota_escalada;
                 $grade_grade->feedback = $mensaje;
                 $grade_grade->feedbackformat = FORMAT_MOODLE;
                 $grade_grade->overridden = 0;
-                $grade_grade->update();
+                $grade_grade->update('local_mejoras_examen');
             }
         }
+
+        // El item ya quedó correcto, pero el Total del curso se recalcula en un paso
+        // aparte de agregación. Forzamos ese recálculo para que no quede desfasado.
+        grade_regrade_final_grades($examen->course);
+        self::log_debug("=== Fin OK: penalización aplicada y gradebook actualizado ===");
     }
 }
