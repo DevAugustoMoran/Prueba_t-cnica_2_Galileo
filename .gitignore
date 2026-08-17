@@ -11,3 +11,5 @@ node_modules/
 /qa_automation/node_modules/
 playwright-report/
 test-results/
+
+src_plugin/local_mejoras_examen/config_ia.php
