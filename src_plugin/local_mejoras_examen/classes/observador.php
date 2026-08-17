@@ -54,64 +54,87 @@ class observador {
         global $DB, $CFG;
 
         $registro_intento = $DB->get_record('quiz_attempts', ['id' => $intento_id]);
-        if (!$registro_intento) return;
+        if (!$registro_intento) {
+            return;
+        }
 
         $examen = $DB->get_record('quiz', ['id' => $registro_intento->quiz]);
-        if (empty($examen->timelimit)) return;
+        if (!$examen) {
+            return;
+        }
 
-        $porcentaje_penalizacion = get_config('local_mejoras_examen', 'penalizacion_gracia');
-        if (empty($porcentaje_penalizacion) || $porcentaje_penalizacion <= 0) return;
+        $porcentaje_penalizacion = (float) get_config('local_mejoras_examen', 'penalizacion_gracia');
+        if ($porcentaje_penalizacion <= 0) {
+            return;
+        }
 
-        $tiempo_limite_estricto = $registro_intento->timestart + $examen->timelimit;
-        $tiempo_excedido = $registro_intento->timefinish - $tiempo_limite_estricto;
+        // Moodle usa el plazo de entrega real (timeclose) y, si existe, la ventana de gracia.
+        // No se debe depender de timelimit, porque muchos exámenes no tienen tiempo límite y aun así
+        // admiten entregas tardías con penalización en la zona de gracia.
+        $deadline = (isset($examen->timeclose) && $examen->timeclose > 0)
+            ? (int) $examen->timeclose
+            : ((isset($examen->timelimit) && $examen->timelimit > 0)
+                ? ((int) $registro_intento->timestart + (int) $examen->timelimit)
+                : 0);
 
-        if ($tiempo_excedido > 15) {
-            
-            $nota_bruta_original = (float) $registro_intento->sumgrades;
-            if ($nota_bruta_original <= 0) return;
+        $gracewindow = (isset($examen->graceperiod) && $examen->graceperiod > 0)
+            ? (int) $examen->graceperiod
+            : 0;
 
-            $factor_multiplicador = 1 - ($porcentaje_penalizacion / 100);
-            $nota_bruta_penalizada = $nota_bruta_original * $factor_multiplicador;
+        // Se aplica sólo si la entrega es tardía pero todavía dentro del periodo de gracia real.
+        $es_tardia = $deadline > 0 && $registro_intento->timefinish > $deadline;
+        $dentro_gracia = $gracewindow > 0
+            ? ($registro_intento->timefinish <= ($deadline + $gracewindow))
+            : $es_tardia;
 
-            // Modificación del registro bruto
-            $registro_intento->sumgrades = $nota_bruta_penalizada;
-            $DB->update_record('quiz_attempts', $registro_intento);
+        if (!$es_tardia || !$dentro_gracia) {
+            return;
+        }
 
-            // Recálculo forzado
-            require_once($CFG->dirroot . '/mod/quiz/locallib.php');
-            quiz_save_best_grade($examen, $registro_intento->userid);
+        $nota_bruta_original = (float) $registro_intento->sumgrades;
+        if ($nota_bruta_original <= 0) {
+            return;
+        }
 
-            // Obtención de la escala final
-            $calificacion_actualizada = $DB->get_record('quiz_grades', ['quiz' => $examen->id, 'userid' => $registro_intento->userid]);
-            $nueva_nota_escalada = (float) $calificacion_actualizada->grade;
+        $factor_multiplicador = 1 - ($porcentaje_penalizacion / 100);
+        $nota_bruta_penalizada = max(0, $nota_bruta_original * $factor_multiplicador);
 
-            $nota_escalada_original = ($examen->sumgrades > 0) ? ($nota_bruta_original / $examen->sumgrades) * $examen->grade : 0;
-            
-            $nota_orig_fmt = number_format($nota_escalada_original, 2);
-            $nueva_nota_fmt = number_format($nueva_nota_escalada, 2);
-            $mensaje = "Nota original calculada: {$nota_orig_fmt}. Se aplicó una deducción del {$porcentaje_penalizacion}% por entrega tardía (período de gracia). Nota ajustada: {$nueva_nota_fmt}.";
+        $registro_intento->sumgrades = $nota_bruta_penalizada;
+        $DB->update_record('quiz_attempts', $registro_intento);
 
-            // Inyección en Gradebook y liberación del candado de anulación
-            require_once($CFG->libdir . '/gradelib.php');
-            $grade_item = \grade_item::fetch([
-                'itemtype' => 'mod',
-                'itemmodule' => 'quiz',
-                'iteminstance' => $examen->id,
-                'courseid' => $examen->course
+        require_once($CFG->dirroot . '/mod/quiz/locallib.php');
+        quiz_save_best_grade($examen, $registro_intento->userid);
+
+        $calificacion_actualizada = $DB->get_record('quiz_grades', ['quiz' => $examen->id, 'userid' => $registro_intento->userid]);
+        $nueva_nota_escalada = $calificacion_actualizada ? (float) $calificacion_actualizada->grade : 0.0;
+
+        $nota_escalada_original = ($examen->sumgrades > 0)
+            ? ($nota_bruta_original / $examen->sumgrades) * $examen->grade
+            : 0;
+
+        $nota_orig_fmt = number_format($nota_escalada_original, 2);
+        $nueva_nota_fmt = number_format($nueva_nota_escalada, 2);
+        $mensaje = "Nota original calculada: {$nota_orig_fmt}. Se aplicó una deducción del {$porcentaje_penalizacion}% por entrega tardía (período de gracia). Nota ajustada: {$nueva_nota_fmt}.";
+
+        require_once($CFG->libdir . '/gradelib.php');
+        $grade_item = \grade_item::fetch([
+            'itemtype' => 'mod',
+            'itemmodule' => 'quiz',
+            'iteminstance' => $examen->id,
+            'courseid' => $examen->course
+        ]);
+
+        if ($grade_item) {
+            $grade_grade = \grade_grade::fetch([
+                'itemid' => $grade_item->id,
+                'userid' => $registro_intento->userid
             ]);
 
-            if ($grade_item) {
-                $grade_grade = \grade_grade::fetch([
-                    'itemid' => $grade_item->id,
-                    'userid' => $registro_intento->userid
-                ]);
-                
-                if ($grade_grade) {
-                    $grade_grade->feedback = $mensaje;
-                    $grade_grade->feedbackformat = FORMAT_MOODLE;
-                    $grade_grade->overridden = 0; 
-                    $grade_grade->update();
-                }
+            if ($grade_grade) {
+                $grade_grade->feedback = $mensaje;
+                $grade_grade->feedbackformat = FORMAT_MOODLE;
+                $grade_grade->overridden = 0;
+                $grade_grade->update();
             }
         }
     }
