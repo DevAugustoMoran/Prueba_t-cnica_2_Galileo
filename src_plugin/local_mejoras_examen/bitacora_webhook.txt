@@ -1,0 +1,14 @@
+2026-08-17 03:03:58 - Datos recibidos:
+
+-----------------
+2026-08-17 04:11:02 - Datos recibidos:
+Array
+(
+    [estudiante_id] => 3
+    [examen_id] => 1
+    [nota_intento] => 0
+    [nota_final] => 9
+    [timestamp] => 1786939765
+)
+
+-----------------

@@ -2,10 +2,8 @@
 defined('MOODLE_INTERNAL') || die();
 
 $plugin->component = 'local_mejoras_examen';
-// Se incrementa la versión al día actual con un secuencial alto
-$plugin->version   = 2026081600; 
+$plugin->version   = 2026082000; 
 $plugin->requires  = 2022041200;
-
 // Estado de madurez del codigo
 $plugin->maturity  = MATURITY_ALPHA;
 

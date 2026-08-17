@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<XMLDB PATH="local/mejoras_examen/db" VERSION="20260815" COMMENT="Tablas para el plugin local de mejoras de examen"
+<XMLDB PATH="local/mejoras_examen/db" VERSION="20260819" COMMENT="XMLDB file for local_mejoras_examen"
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xsi:noNamespaceSchemaLocation="../../../lib/xmldb/xmldb.xsd"
 >
@@ -14,6 +14,22 @@
       <KEYS>
         <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
         <KEY NAME="intento_id_fk" TYPE="foreign" FIELDS="intento_id" REFTABLE="quiz_attempts" REFFIELDS="id"/>
+      </KEYS>
+    </TABLE>
+    <TABLE NAME="local_mejoras_webhook" COMMENT="Cola y registro de notificaciones a sistemas externos">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="intento_id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="carga_util" TYPE="text" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="estado" TYPE="char" LENGTH="20" NOTNULL="true" DEFAULT="pendiente" SEQUENCE="false"/>
+        <FIELD NAME="reintentos" TYPE="int" LENGTH="4" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="respuesta_http" TYPE="int" LENGTH="4" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="registro_error" TYPE="text" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="tiempo_creacion" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="tiempo_modificacion" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
       </KEYS>
     </TABLE>
   </TABLES>
