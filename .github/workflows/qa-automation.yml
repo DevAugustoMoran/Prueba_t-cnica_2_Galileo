@@ -31,6 +31,19 @@ jobs:
       - name: Descargar el repo
         uses: actions/checkout@v4
 
+      - name: Asegurar permisos de escritura en las carpetas de plugins montadas
+        # src_plugin/ se monta dentro del contenedor tal cual queda en el
+        # checkout de git del runner -- sin esto, www-data (el usuario con el
+        # que corre Apache/PHP dentro del contenedor) no tiene permiso de
+        # escritura ahí. Esto pasó desapercibido en local porque cada quien
+        # ya tenía la carpeta con permisos abiertos de antes. Confirmado
+        # contra la instancia real: receptor.php (Cambio 3) ignora el
+        # resultado de su propio file_put_contents, así que una escritura
+        # fallida por permisos no se nota en la respuesta HTTP (sigue
+        # devolviendo 200) -- solo se nota en que el archivo de bitácora
+        # nunca crece.
+        run: chmod -R 777 src_plugin/
+
       - name: Levantar Moodle + MariaDB
         # Con el healthcheck de docker-compose.yml (depends_on: condition:
         # service_healthy), este comando ya espera a que MariaDB esté
