@@ -46,6 +46,15 @@ export class QuizContentPage {
   }
 
   /**
+   * Verifica si una pregunta con el nombre dado ya está agregada al examen.
+   * Útil antes de agregar una pregunta puntual que también podría haber
+   * caído por sorteo (preguntas aleatorias, scope #3) -- evita duplicarla.
+   */
+  async contienePregunta(nombrePregunta: string): Promise<boolean> {
+    return (await this.page.getByText(nombrePregunta, { exact: false }).count()) > 0;
+  }
+
+  /**
    * Agrega una pregunta puntual del banco al examen.
    *
    * Navega directo a la acción "addquestion" documentada en el propio código

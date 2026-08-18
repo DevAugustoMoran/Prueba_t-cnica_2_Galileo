@@ -16,11 +16,11 @@ justificación).
 | 3 | Agregar preguntas al examen (del banco y aleatorias) | `tests/03-add-questions.spec.ts` | ✅ |
 | 4 | Configurar opciones de revisión | `tests/04-review-options.spec.ts` | ✅ |
 | 5 | Vista previa del examen como profesor | `tests/05-teacher-preview.spec.ts` | ✅ |
-| 6 | Estudiante: iniciar intento, responder, navegar, marcar para revisar | `tests/06-student-attempt-flow.spec.ts` | 🚧 |
-| 7 | Estudiante: límite de tiempo y auto-envío al expirar | `tests/07-timelimit-autosubmit.spec.ts` | 🚧 |
-| 8 | Estudiante: enviar el intento | `tests/06-student-attempt-flow.spec.ts` (mismo flujo que #6) | 🚧 |
-| 9 | Calificación automática y visualización del resultado | `tests/09-autograding-results.spec.ts` | 🚧 |
-| 10 | Profesor: ver intentos, calificar manualmente (ensayo), recalificar | `tests/10-manual-grading.spec.ts` | 🚧 |
+| 6 | Estudiante: iniciar intento, responder, navegar, marcar para revisar | `tests/06-student-attempt-flow.spec.ts` | ✅ |
+| 7 | Estudiante: límite de tiempo y auto-envío al expirar | `tests/07-timelimit-autosubmit.spec.ts` | ✅ |
+| 8 | Estudiante: enviar el intento | `tests/06-student-attempt-flow.spec.ts` (mismo flujo que #6) | ✅ |
+| 9 | Calificación automática y visualización del resultado | `tests/06-student-attempt-flow.spec.ts` (mismo flujo que #6) | ✅ |
+| 10 | Profesor: ver intentos, calificar manualmente (ensayo), recalificar | `tests/10-manual-grading.spec.ts` | ✅ |
 | 11 | Profesor: override de notas y reportes del examen | `tests/11-grade-override-reports.spec.ts` | 🚧 |
 | 12 | Restricciones de acceso (contraseña, ventana de fechas) | `tests/12-access-restrictions.spec.ts` | 🚧 |
 
@@ -98,8 +98,50 @@ justificación).
 - **Vista previa con examen cronometrado**: `startattempt.php` no arranca el
   intento directo -- primero muestra una pantalla de aviso ("el reloj empieza
   apenas confirmes") con un botón "Comenzar intento" que hay que confirmar.
-  `iniciarVistaPrevia` lo maneja de forma tolerante (solo confirma si
-  aparece), para que siga funcionando igual en exámenes sin límite de tiempo.
+  `iniciarVistaPrevia` (y, del lado del alumno, `StudentAttemptPage.iniciarIntento`)
+  lo manejan de forma tolerante (solo confirman si aparece), para que sigan
+  funcionando igual en exámenes sin límite de tiempo.
+- **Contenedor de cada pregunta durante el intento**: `<div class="que {tipo}
+  ...">` (confirmado contra `question/engine/renderer.php`), con `{tipo}` =
+  multichoice/truefalse/shortanswer/numerical/match/essay. `StudentAttemptPage`
+  detecta el tipo de la pregunta actual por esta clase, no por su posición ni
+  por texto traducido -- funciona igual sin importar qué haya salido sorteado
+  entre las preguntas aleatorias (scope #3).
+- **Verificación de respuesta correcta** usa las clases CSS
+  `correct`/`partiallycorrect`/`incorrect` que Moodle agrega al mismo
+  contenedor `.que` tras calificar (confirmado contra
+  `question/engine/states.php`), no un texto traducido.
+- **Envío final del intento requiere DOS clicks**, no uno: el botón real
+  dispara un handler JS que siempre intercepta el click (`preventDefault`) y
+  abre un modal de confirmación cuyo botón reutiliza el mismo texto
+  (`get_string('submitallandfinish', 'quiz')` se usa para los dos --
+  confirmado contra `mod_quiz/amd/src/submission_confirmation.js`). Un solo
+  click deja el modal abierto sin enviar nada.
+- **El auto-envío por límite de tiempo (scope #7) es 100% del lado del
+  cliente**, confirmado contra `mod/quiz/module.js`
+  (`M.mod_quiz.timer.update`): cuando el tiempo restante es negativo, el
+  propio JS hace `form.submit()` directo, sin depender de cron ni de ninguna
+  tarea programada. El test usa un examen aparte con límite de 8 segundos
+  (no los 90s de "Examen QA E2E") para que la corrida sea rápida sin dejar
+  de esperar el vencimiento real.
+- **El control de "marcar para revisar" es un botón toggle, no un
+  checkbox**: `question/engine/renderer.php` documenta un
+  `<input type="checkbox" class="questionflag">` como mecanismo genérico del
+  motor de preguntas, pero en la pantalla real del intento (Moodle 4.3.12),
+  `mod_quiz` usa su propio `<button aria-pressed="...">` -- discrepancia real
+  entre el código PHP consultado y el comportamiento efectivo, encontrada
+  recién al correr contra la instancia real, no legible desde el código
+  fuente por sí solo.
+- **Calificación manual**: la interfaz vive en
+  `mod/quiz/report.php?mode=grading`, con un formulario de id estable
+  `#manualgradingform` (confirmado contra
+  `mod/quiz/report/grading/renderer.php`). Los campos de nota y comentario
+  usan el mismo patrón dinámico `q{usageid}:{slot}_-mark` /
+  `q{usageid}:{slot}_-comment` que las respuestas del alumno (confirmado
+  contra `question/behaviour/rendererbase.php`), así que se ubican por
+  selector de atributo "contiene", no por id completo. La pregunta a
+  calificar se identifica por su nombre real en la fila de la tabla índice,
+  no por slot/questionid (dinámicos según qué preguntas tenga cada examen).
 - **La suite se valida con reset completo, no con cleanup idempotente por
   test**: `npm test` dispara `seed:reset` automáticamente (hook `pretest`), así
   que cada corrida real arranca de una base limpia. Los tests individuales no

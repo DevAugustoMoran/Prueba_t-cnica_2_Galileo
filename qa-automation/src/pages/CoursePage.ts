@@ -38,7 +38,20 @@ export class CoursePage {
   async getActivityCmId(courseId: number, nombreActividad: string): Promise<number> {
     await this.goto(courseId);
 
-    const enlace = this.page.getByRole('link', { name: nombreActividad, exact: true });
+    const main = this.page.locator('[role="main"]');
+
+    // El link de la actividad en el contenido principal incluye el tipo de
+    // actividad pegado a su nombre accesible (ej. "Examen QA E2E
+    // Cuestionario"), así que casi nunca hay match 100% exacto. Se prioriza
+    // exacto por si acaso (evita ambigüedad si coexisten nombres con el
+    // mismo prefijo, ej. "Examen QA E2E" vs "Examen QA E2E - Auto-envío" del
+    // scope #7), y se cae a substring -- tomando el primero -- si no hay
+    // ninguno exacto.
+    let enlace = main.getByRole('link', { name: nombreActividad, exact: true });
+    if ((await enlace.count()) === 0) {
+      enlace = main.getByRole('link', { name: nombreActividad }).first();
+    }
+
     await expect(enlace).toBeVisible({ timeout: 10_000 });
 
     const href = await enlace.getAttribute('href');
@@ -50,6 +63,29 @@ export class CoursePage {
 
   async goto(courseId: number) {
     await this.page.goto(`/course/view.php?id=${courseId}`);
+    await this.descartarTourSiAparece();
+  }
+
+  /**
+   * Moodle muestra un tour de onboarding ("Activar modo de edición") la
+   * primera vez que se visita la página de un curso en un contexto nuevo --
+   * como cada reset crea el curso de cero, vuelve a considerarse "nuevo" en
+   * cada corrida. El tour tapa la página con un diálogo modal, bloqueando
+   * cualquier interacción posterior si no se descarta primero.
+   *
+   * El tour lo carga un módulo JS aparte que renderiza con un pequeño delay
+   * después del contenido principal: un chequeo instantáneo (.count()) corre
+   * antes de que aparezca y siempre da 0. Se espera activamente un par de
+   * segundos por si aparece, tolerando que nunca lo haga.
+   */
+  private async descartarTourSiAparece() {
+    const botonSalir = this.page.getByRole('button', { name: 'Salir del tour' });
+    try {
+      await botonSalir.waitFor({ state: 'visible', timeout: 3_000 });
+      await botonSalir.click();
+    } catch {
+      // El tour no apareció en este load -- no hay nada que descartar.
+    }
   }
 
   /**
