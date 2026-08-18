@@ -24,6 +24,14 @@ test.describe('Cambio 3 · Notificación de resultado a sistema externo', () => 
     teacherPage,
     studentPage,
   }) => {
+    // El envío inmediato del Cambio 3 es "el camino feliz rápido" (según el
+    // propio comentario de observador.php) -- si por lo que sea no llega a
+    // completarse en esa misma request (ej. en un entorno de CI más cargado
+    // que un dev local), la resiliencia real es el cron (procesar_webhooks),
+    // que corre cada 60s (ver entrypoint.sh). El timeout del test tiene que
+    // dar margen para ese ciclo completo, no solo para el camino rápido.
+    test.setTimeout(120_000);
+
     const cursoPage = new CoursePage(teacherPage);
     const bancoPage = new QuestionBankPage(teacherPage);
     const quizSettingsPage = new QuizSettingsPage(teacherPage);
@@ -61,7 +69,7 @@ test.describe('Cambio 3 · Notificación de resultado a sistema externo', () => 
     // agregó incluye la fecha de hoy -- confirma que es una entrada
     // genuinamente nueva de esta corrida, no una vieja que ya estaba ahí
     // (el archivo no se borra con el reset del curso).
-    const contenidoDespues = await esperarNuevaEntradaEnBitacora(teacherPage, contenidoAntes);
+    const contenidoDespues = await esperarNuevaEntradaEnBitacora(teacherPage, contenidoAntes, 90_000);
     const fechaHoy = new Date().toISOString().slice(0, 10);
     const entradaNueva = contenidoDespues.slice(contenidoAntes.length);
     expect(entradaNueva).toContain(fechaHoy);
