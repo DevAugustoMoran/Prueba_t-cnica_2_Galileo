@@ -14,8 +14,8 @@ justificación).
 | 1 | Crear y configurar un examen (timing, intentos, método de calificación) | `tests/01-quiz-setup.spec.ts` | ✅ |
 | 2 | Banco de preguntas: crear preguntas de varios tipos | `tests/02-question-bank.spec.ts` | ✅ |
 | 3 | Agregar preguntas al examen (del banco y aleatorias) | `tests/03-add-questions.spec.ts` | ✅ |
-| 4 | Configurar opciones de revisión | `tests/04-review-options.spec.ts` | 🚧 |
-| 5 | Vista previa del examen como profesor | `tests/05-teacher-preview.spec.ts` | 🚧 |
+| 4 | Configurar opciones de revisión | `tests/04-review-options.spec.ts` | ✅ |
+| 5 | Vista previa del examen como profesor | `tests/05-teacher-preview.spec.ts` | ✅ |
 | 6 | Estudiante: iniciar intento, responder, navegar, marcar para revisar | `tests/06-student-attempt-flow.spec.ts` | 🚧 |
 | 7 | Estudiante: límite de tiempo y auto-envío al expirar | `tests/07-timelimit-autosubmit.spec.ts` | 🚧 |
 | 8 | Estudiante: enviar el intento | `tests/06-student-attempt-flow.spec.ts` (mismo flujo que #6) | 🚧 |
@@ -81,6 +81,25 @@ justificación).
 - El conteo de preguntas del examen usa `[id^="mod-indent-outer-slot-"]`
   (confirmado contra `question_slot.mustache`), válido para cualquier tipo de
   pregunta -- incluidas las aleatorias -- sin depender de texto traducido.
+- **Opciones de revisión**: los 8 campos × 4 momentos (`{campo}{momento}`,
+  confirmado contra `mod_form.php`) tienen dependencias cruzadas vía
+  `disabledIf` (ej. `marks{momento}` depende de `maxmarks{momento}`). El test
+  usa deliberadamente `maxmarksduring` y `overallfeedbackopen`, los únicos que
+  confirmé habilitados contra la instancia real para la configuración actual
+  del examen -- **hallazgo real, no documentado en el PHP del formulario**:
+  con comportamiento "Retroalimentación diferida", Moodle deshabilita por JS
+  casi todos los campos "durante el intento" salvo `maxmarks` (no tiene
+  sentido corregir algo que todavía no se calificó); y como el examen no
+  tiene fecha de cierre (`timeclose`), deshabilita el grupo completo
+  "después de cerrar" -- ninguna de las dos reglas está en el código PHP que
+  arma el formulario, son JS que se agrega en runtime según la config
+  vigente. `configurarOpcionesRevision` detecta esto y falla con mensaje
+  explícito en vez de dejar que el timeout de Playwright oscurezca la causa.
+- **Vista previa con examen cronometrado**: `startattempt.php` no arranca el
+  intento directo -- primero muestra una pantalla de aviso ("el reloj empieza
+  apenas confirmes") con un botón "Comenzar intento" que hay que confirmar.
+  `iniciarVistaPrevia` lo maneja de forma tolerante (solo confirma si
+  aparece), para que siga funcionando igual en exámenes sin límite de tiempo.
 - **La suite se valida con reset completo, no con cleanup idempotente por
   test**: `npm test` dispara `seed:reset` automáticamente (hook `pretest`), así
   que cada corrida real arranca de una base limpia. Los tests individuales no

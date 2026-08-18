@@ -127,6 +127,72 @@ export class QuizSettingsPage {
   }
 
   /**
+   * Configura opciones de revisión del examen ("qué ve el estudiante y
+   * cuándo"). Cada clave es un id de campo real del formulario, con el patrón
+   * "{campo}{momento}" confirmado contra mod_form.php:
+   *   campo:   attempt | correctness | maxmarks | marks | specificfeedback |
+   *            generalfeedback | rightanswer | overallfeedback
+   *   momento: during | immediately | open | closed
+   * Ej.: { attemptduring: true, overallfeedbackclosed: false }.
+   *
+   * OJO con las dependencias del propio formulario (no son un bug del test):
+   * "marks{momento}" queda deshabilitado si "maxmarks{momento}" está
+   * destildado; y en todo momento que no sea "during", "correctness",
+   * "specificfeedback", "generalfeedback" y "rightanswer" quedan
+   * deshabilitados si "attempt{momento}" está destildado. Si se necesita
+   * tildar un campo dependiente, hay que asegurarse de que su campo del que
+   * depende esté tildado en el mismo llamado.
+   */
+  async configurarOpcionesRevision(cmId: number, opciones: Record<string, boolean>) {
+    await this.page.goto(`/course/modedit.php?update=${cmId}&return=1`);
+    await this.expandirTodasLasSecciones();
+
+    for (const [campo, valor] of Object.entries(opciones)) {
+      const checkbox = this.page.locator(`#id_${campo}`);
+
+      // Varios campos quedan deshabilitados por JS según la config actual del
+      // examen -- no es un bug del test, es la propia UI de Moodle: los
+      // campos de "durante el intento" (salvo maxmarks) se bloquean cuando el
+      // comportamiento de preguntas es "Retroalimentación diferida" (no hay
+      // nada que corregir todavía mientras se rinde), y el grupo completo de
+      // "después de cerrar" se bloquea si el examen no tiene fecha de cierre
+      // (timeclose) configurada. Se falla con un mensaje claro en vez de
+      // dejar que Playwright agote el timeout tratando de tildar algo
+      // inhabilitado.
+      if (await checkbox.isDisabled()) {
+        throw new Error(
+          `El campo "${campo}" está deshabilitado en este examen (revisá el comportamiento de ` +
+            `preguntas configurado y si tiene fecha de cierre) -- no se puede tildar/destildar.`
+        );
+      }
+
+      if (valor) {
+        await checkbox.check();
+      } else {
+        await checkbox.uncheck();
+      }
+    }
+
+    await this.page.locator('#id_submitbutton, input[name="submitbutton"]').first().click();
+    await expect(this.page).toHaveURL(/mod\/quiz\/view\.php\?id=\d+/, { timeout: 15_000 });
+  }
+
+  /** Relee del formulario el estado actual de los campos de revisión indicados. */
+  async leerOpcionesRevisionPersistidas(
+    cmId: number,
+    campos: string[]
+  ): Promise<Record<string, boolean>> {
+    await this.page.goto(`/course/modedit.php?update=${cmId}&return=1`);
+    await this.expandirTodasLasSecciones();
+
+    const resultado: Record<string, boolean> = {};
+    for (const campo of campos) {
+      resultado[campo] = await this.page.locator(`#id_${campo}`).isChecked();
+    }
+    return resultado;
+  }
+
+  /**
    * Expande todas las secciones colapsables del formulario con un solo click,
    * en vez de expandir sección por sección -- más simple y resistente a que
    * Moodle reordene o renombre secciones en el futuro. Tolerante a que el

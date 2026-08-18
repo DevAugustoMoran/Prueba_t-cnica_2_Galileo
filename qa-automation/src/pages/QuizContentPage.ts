@@ -12,6 +12,29 @@ export class QuizContentPage {
   }
 
   /**
+   * Inicia una vista previa del examen (mod/quiz/startattempt.php), la misma
+   * acción a la que apunta el botón "Vista previa" de la pantalla del examen.
+   * El comentario del código fuente dice "should only ever be posted to",
+   * pero funcionalmente valida el sesskey vía optional_param (no exige
+   * método POST), así que un GET normal con el sesskey funciona igual --
+   * mismo criterio que con addquestion/addrandom.
+   */
+  async iniciarVistaPrevia(cmid: number) {
+    const sesskey = await this.getSesskey();
+    await this.page.goto(`/mod/quiz/startattempt.php?cmid=${cmid}&sesskey=${sesskey}`);
+
+    // Cuando el examen tiene límite de tiempo, Moodle no arranca el intento
+    // directo: muestra una pantalla de aviso ("el reloj empieza apenas
+    // confirmes, no se puede pausar") con un botón "Comenzar intento" que
+    // hay que confirmar. Si el examen no tuviera límite de tiempo (u otra
+    // restricción de acceso), este botón no aparece y se sigue derecho.
+    const botonComenzar = this.page.getByRole('button', { name: 'Comenzar intento' });
+    if (await botonComenzar.count() > 0) {
+      await botonComenzar.click();
+    }
+  }
+
+  /**
    * Cuenta la cantidad de preguntas (slots) actualmente en el examen. Cada
    * slot -- de cualquier tipo, incluidas las preguntas aleatorias -- se
    * renderiza con id="mod-indent-outer-slot-{id}" (confirmado contra
