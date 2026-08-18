@@ -1,4 +1,6 @@
 import { Page } from '@playwright/test';
+import { spawnSync } from 'node:child_process';
+import path from 'node:path';
 
 /**
  * receptor.php (Cambio 3) registra cada webhook recibido en un archivo de
@@ -22,25 +24,95 @@ export async function leerBitacoraWebhook(page: Page): Promise<string> {
 }
 
 /**
- * Sondea la bitácora hasta que crezca respecto al contenido dado, o hasta
- * agotar el timeout. El envío inmediato del Cambio 3 debería reflejarse casi
- * al toque, pero se sondea con margen por si hay alguna demora residual del
- * lado del servidor.
+ * Dispara admin/cli/cron.php a demanda, vía el mismo mecanismo que usa
+ * scripts/seed.mjs (docker compose exec).
+ *
+ * El envío inmediato del Cambio 3 (dentro de la misma request que procesa el
+ * intento) cubre el camino feliz rápido; el cron es la resiliencia real para
+ * cuando ese camino no alcanza. Pero confirmado contra la instancia real, el
+ * ciclo del cron en segundo plano del contenedor no es un simple "cada 60s":
+ * cron.php mantiene una ventana interna de ~100s revisando tareas adhoc
+ * antes de volver a evaluar las tareas PROGRAMADAS (como
+ * procesar_webhooks), así que esperar pasivamente ese ciclo completo es
+ * lento e impredecible para un test. Dispararlo a demanda hace que el test
+ * sea determinístico en vez de depender de ese timing.
+ */
+export function dispararCronMoodle(): void {
+  const servicio = process.env.MOODLE_COMPOSE_SERVICE || 'moodle';
+  // process.cwd() siempre es qa-automation/ cuando corre la suite (igual que
+  // en scripts/seed.mjs) -- la raíz del repo es un nivel arriba. Se evita
+  // __dirname a propósito: no está garantizado según cómo Playwright
+  // transpila los módulos (CJS vs ESM).
+  const repoRoot = path.resolve(process.cwd(), '..');
+
+  const resultado = spawnSync(
+    'docker',
+    [
+      'compose',
+      'exec',
+      '-T',
+      servicio,
+      'php',
+      '/var/www/html/admin/cli/cron.php',
+      // Sin esto, cron.php se queda ~100s revisando tareas adhoc antes de
+      // devolver el control (confirmado contra --help del propio script:
+      // "-k, --keep-alive=N Keep this script alive for N seconds..."). Acá
+      // solo interesa que evalúe las tareas PROGRAMADAS (procesar_webhooks
+      // entre ellas) y salga, no que se quede escuchando.
+      '--keep-alive=0',
+    ],
+    { cwd: repoRoot, stdio: 'pipe', shell: process.platform === 'win32' }
+  );
+
+  if (resultado.error) {
+    throw new Error(
+      `No se pudo disparar cron.php vía docker compose: ${resultado.error.message}`
+    );
+  }
+}
+
+/**
+ * Sondea la bitácora en dos fases:
+ *   1. Espera corta, dándole chance al envío inmediato del Cambio 3 (el
+ *      camino feliz rápido, dentro de la misma request que procesa el
+ *      intento).
+ *   2. Si no llegó, dispara cron.php a demanda (en vez de seguir esperando
+ *      pasivamente el loop de fondo del contenedor) y vuelve a sondear.
+ *      Confirmado contra la instancia real que ese loop de fondo no es un
+ *      simple "cada 60s": cron.php mantiene una ventana interna de ~100s
+ *      revisando tareas adhoc antes de reevaluar las tareas PROGRAMADAS
+ *      (procesar_webhooks incluida), así que esperarlo pasivamente es lento
+ *      e impredecible para un test -- dispararlo a demanda lo hace
+ *      determinístico.
  */
 export async function esperarNuevaEntradaEnBitacora(
   page: Page,
   contenidoAntes: string,
-  timeoutMs = 10_000
+  opciones: { timeoutInmediatoMs?: number; timeoutTrasCronMs?: number } = {}
 ): Promise<string> {
-  const inicio = Date.now();
-  while (Date.now() - inicio < timeoutMs) {
+  const { timeoutInmediatoMs = 8_000, timeoutTrasCronMs = 20_000 } = opciones;
+
+  const inicioFase1 = Date.now();
+  while (Date.now() - inicioFase1 < timeoutInmediatoMs) {
     const actual = await leerBitacoraWebhook(page);
     if (actual.length > contenidoAntes.length) {
       return actual;
     }
     await page.waitForTimeout(500);
   }
+
+  dispararCronMoodle();
+
+  const inicioFase2 = Date.now();
+  while (Date.now() - inicioFase2 < timeoutTrasCronMs) {
+    const actual = await leerBitacoraWebhook(page);
+    if (actual.length > contenidoAntes.length) {
+      return actual;
+    }
+    await page.waitForTimeout(500);
+  }
+
   throw new Error(
-    'La bitácora del webhook no creció dentro del tiempo esperado -- el envío no llegó a receptor.php.'
+    'La bitácora del webhook no creció ni con el envío inmediato ni forzando cron.php -- el envío no llegó a receptor.php.'
   );
 }
