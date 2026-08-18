@@ -28,10 +28,10 @@ justificación).
 
 | Cambio | Test(s) | Estado |
 |---|---|---|
-| 1 · Sugerencia de calificación con IA | `tests/change1-ai-grading-suggestion.spec.ts` | 🚧 |
-| 2 · Señal de integridad por pérdida de foco | `tests/change2-focus-loss.spec.ts` | 🚧 |
-| 3 · Notificación de resultado a sistema externo | `tests/change3-webhook-notification.spec.ts` | 🚧 |
-| 4 · Penalización por entrega en período de gracia | `tests/change4-grace-penalty.spec.ts` | 🚧 |
+| 1 · Sugerencia de calificación con IA | `tests/13-cambio1-asistente-ia.spec.ts` | ✅ |
+| 2 · Señal de integridad por pérdida de foco | `tests/14-cambio2-foco-perdido.spec.ts` | ✅ |
+| 3 · Notificación de resultado a sistema externo | `tests/15-cambio3-webhook.spec.ts` | ✅ |
+| 4 · Penalización por entrega en período de gracia | `tests/16-cambio4-penalizacion-gracia.spec.ts` | ✅ |
 
 ## Notas de diseño que afectan la cobertura
 
@@ -168,6 +168,40 @@ justificación).
   por fecha se verifica de forma estructural (ausencia de cualquier link o
   formulario hacia `startattempt.php` en la página), no por mensaje
   traducido.
+- **Cambio 1 (asistente de IA)**: la llamada real a `ajax_ia.php` (que a su
+  vez llama a la API de Gemini) se intercepta con `page.route()` y se
+  responde con datos simulados -- la suite no debe depender de gastar cuota
+  de API real ni de la variabilidad de una IA en cada corrida. Se verifica
+  tanto que el resultado mockeado se refleje en el panel como que el propio
+  campo de nota del formulario de calificación quede precargado, y que la
+  petición saliente haya llevado el contenido real de la pregunta (no un
+  valor genérico).
+- **Cambio 2 (pérdida de foco)**: la pérdida de foco se simula
+  sobreescribiendo `document.visibilityState` a `"hidden"` y disparando
+  `visibilitychange` manualmente vía `page.evaluate()`, en vez de cambiar de
+  pestaña de verdad (poco confiable en automatización) -- dispara el mismo
+  código real de `foco.js`. Se verifica tanto el registro del lado del
+  alumno como el badge "Foco perdido: N" que `alerta_profesor.js` agrega en
+  el reporte de resultados del profesor (ese script hace su propio fetch
+  asincrónico al cargar la página, así que el badge no está en el HTML
+  inicial).
+- **Cambio 3 (webhook)**: no hay ninguna pantalla de Moodle que muestre "se
+  mandó el webhook" -- el efecto es una llamada HTTP servidor-a-servidor. Se
+  verifica leyendo directo por HTTP la bitácora que arma `receptor.php`
+  (vive en una carpeta pública del plugin, `bitacora_webhook.txt`, accesible
+  sin sesión). OJO: ese archivo vive en el filesystem, no en la base de
+  datos, así que un reset de curso NO lo vacía -- por eso nunca se verifica
+  "tiene contenido" a secas, sino que haya crecido respecto a un snapshot
+  tomado antes del envío, y que lo nuevo agregado incluya la fecha de hoy
+  (confirma que es una entrada de esta corrida, no una vieja).
+- **Cambio 4 (penalización por gracia)**: usa un examen con límite de tiempo
+  corto (5s) y período de gracia generoso (120s) -- el alumno responde antes
+  de que venza el tiempo pero envía después, dentro de la gracia. No se
+  asume el porcentaje exacto de la deducción (`penalizacion_gracia` es una
+  config de sitio) -- se verifica la estructura real del mensaje que arma el
+  propio plugin (texto propio, no traducido por Moodle, confirmado contra
+  `classes/observador.php`), visible en la vista de calificaciones del
+  propio alumno.
 - **La suite se valida con reset completo, no con cleanup idempotente por
   test**: `npm test` dispara `seed:reset` automáticamente (hook `pretest`), así
   que cada corrida real arranca de una base limpia. Los tests individuales no

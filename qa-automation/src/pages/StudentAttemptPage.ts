@@ -52,6 +52,28 @@ export class StudentAttemptPage {
     }
   }
 
+  /**
+   * Simula una pérdida de foco (cambio de pestaña/ventana) disparando el
+   * mismo evento real que escucha foco.js -- no cambia de pestaña de verdad
+   * (mecanismo poco confiable en automatización), sino que fuerza
+   * document.visibilityState a "hidden" y dispara 'visibilitychange'
+   * directamente, ejercitando el código real de detección.
+   *
+   * Espera más que el debounce interno de foco.js (150ms) más el tiempo de
+   * red del fetch real a registrar_foco.php, para que la infracción quede
+   * efectivamente registrada del lado del servidor antes de continuar.
+   */
+  async simularPerdidaDeFoco() {
+    await this.page.evaluate(() => {
+      Object.defineProperty(document, 'visibilityState', {
+        configurable: true,
+        get: () => 'hidden',
+      });
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+    await this.page.waitForTimeout(1_000);
+  }
+
   /** El contenedor de la pregunta actualmente visible en la página. */
   private preguntaActual(): Locator {
     return this.page.locator('.que');
@@ -204,18 +226,31 @@ export class StudentAttemptPage {
   /**
    * Desde la pantalla de resumen (summary.php, a la que ya llegó
    * responderTodoElExamen), confirma el envío final. El botón real dispara
-   * un handler JS que SIEMPRE intercepta el click (preventDefault) y abre un
-   * modal de confirmación cuyo botón reutiliza el mismo texto
+   * un handler JS que casi siempre intercepta el click (preventDefault) y
+   * abre un modal de confirmación cuyo botón reutiliza el mismo texto
    * (get_string('submitallandfinish', 'quiz') se usa para los dos --
    * confirmado contra mod_quiz/amd/src/submission_confirmation.js), así que
    * hace falta un segundo click sobre el botón del modal para que el envío
    * se efectúe de verdad.
+   *
+   * OJO: en un intento ya vencido (fuera de tiempo, dentro del período de
+   * gracia), confirmado contra la instancia real que el modal se saltea y
+   * el primer click ya envía directo a review.php -- se tolera cualquiera
+   * de los dos casos.
    */
   async confirmarEnvioDesdeResumen() {
     await expect(this.page).toHaveURL(/mod\/quiz\/summary\.php/, { timeout: 15_000 });
 
     const botonesEnviar = this.page.getByRole('button', { name: 'Enviar todo y terminar' });
     await botonesEnviar.first().click();
+
+    try {
+      // Caso "sin modal": ya navegó directo, no hay nada más que hacer.
+      await expect(this.page).toHaveURL(/mod\/quiz\/review\.php/, { timeout: 3_000 });
+      return;
+    } catch {
+      // No navegó todavía -- asumimos que sigue en el modal de confirmación.
+    }
 
     // El botón del modal reutiliza el mismo texto que el original: esperamos
     // a que aparezca el segundo (el del modal) antes de confirmarlo.
