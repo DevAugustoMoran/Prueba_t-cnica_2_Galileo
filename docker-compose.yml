@@ -8,6 +8,15 @@ services:
       - MARIADB_ROOT_PASSWORD=claveroot
     volumes:
       - mariadb_data:/var/lib/mysql
+    healthcheck:
+      # Script oficial de la propia imagen, pensado para no dar falso
+      # positivo durante el arranque en dos etapas del primer boot (instancia
+      # temporal de inicialización -> reinicio -> instancia final real).
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
 
   moodle:
     build: .
@@ -19,7 +28,8 @@ services:
       - ./src_plugin/local_qa_seed:/var/www/html/local/qa_seed
       - ./config.php:/var/www/html/config.php
     depends_on:
-      - mariadb
+      mariadb:
+        condition: service_healthy
 
 volumes:
   mariadb_data:
