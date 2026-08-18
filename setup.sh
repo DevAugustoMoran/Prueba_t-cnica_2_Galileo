@@ -45,9 +45,11 @@ CODIGO_INSTALL=$?
 set -e
 echo "$SALIDA_INSTALL"
 
+SE_INSTALO_AHORA=true
 if [ $CODIGO_INSTALL -ne 0 ]; then
   if echo "$SALIDA_INSTALL" | grep -qi "ya existentes\|already exist"; then
     echo "(La base de datos ya estaba instalada de una corrida anterior -- se omite este paso y se sigue.)"
+    SE_INSTALO_AHORA=false
   else
     echo "Falló la instalación de Moodle por un motivo distinto a 'ya estaba instalada'. Abortando."
     exit 1
@@ -86,10 +88,20 @@ echo "=== 8/8 · Preparando la suite de QA ==="
 cd qa-automation
 if [ ! -f .env ]; then
   cp .env.example .env
+  if [ "$SE_INSTALO_AHORA" = "true" ]; then
+    sed -i.bak "s/^ADMIN_PASSWORD=.*/ADMIN_PASSWORD=$ADMIN_PASSWORD/" .env && rm -f .env.bak
+  else
+    echo "OJO: la base de datos ya estaba instalada de antes, así que no sabemos"
+    echo "la contraseña real de admin -- .env quedó con el valor de ejemplo"
+    echo "sin completar en ADMIN_PASSWORD. Editalo a mano con la contraseña real."
+  fi
+elif [ "$SE_INSTALO_AHORA" = "true" ]; then
+  # .env ya existía, pero como SÍ se instaló de cero ahora, la contraseña
+  # real es la de esta corrida -- se sincroniza.
+  sed -i.bak "s/^ADMIN_PASSWORD=.*/ADMIN_PASSWORD=$ADMIN_PASSWORD/" .env && rm -f .env.bak
+else
+  echo "(.env ya existía y la base de datos no se reinstaló -- no se toca ADMIN_PASSWORD, se asume que ya estaba bien configurado de antes.)"
 fi
-# Reemplaza ADMIN_PASSWORD en .env con la contraseña real recién configurada
-# (portable entre GNU sed y BSD/macOS sed vía el sufijo .bak).
-sed -i.bak "s/^ADMIN_PASSWORD=.*/ADMIN_PASSWORD=$ADMIN_PASSWORD/" .env && rm -f .env.bak
 npm install
 npx playwright install --with-deps chromium
 
@@ -98,6 +110,15 @@ echo "======================================================"
 echo " Listo. Para correr la suite completa:"
 echo "   cd qa-automation && npm test"
 echo ""
-echo " Admin de Moodle -> usuario: admin / contraseña: $ADMIN_PASSWORD"
+if [ "$SE_INSTALO_AHORA" = "true" ]; then
+  echo " Admin de Moodle -> usuario: admin / contraseña: $ADMIN_PASSWORD"
+else
+  echo " OJO: la base de datos ya estaba instalada de una corrida anterior --"
+  echo " la contraseña real de admin es la que se usó en ESA instalación"
+  echo " original, no necesariamente '$ADMIN_PASSWORD' (el valor de esta"
+  echo " corrida). Si no la recordás y necesitás una conocida, reseteá la"
+  echo " base de datos de cero con:"
+  echo "   docker compose down -v && ./setup.sh"
+fi
 echo " Moodle corriendo en: http://localhost:8080"
 echo "======================================================"
