@@ -1,0 +1,16 @@
+<?php
+// Copiá este archivo a config_ia.php (en esta misma carpeta) y poné tu
+// propia clave de la API de Gemini si querés probar el asistente de IA
+// "a mano" desde la interfaz real de Moodle.
+//
+// OJO: esto NO hace falta para correr la suite de QA automatizada -- el
+// test del Cambio 1 intercepta esta llamada con una respuesta simulada
+// (ver qa-automation/tests/13-cambio1-asistente-ia.spec.ts), justamente
+// para no depender de una clave real ni de la variabilidad de una IA.
+// Este archivo solo importa si querés explorar la función real, clickeando
+// el botón "Generar Sugerencia" vos mismo en la pantalla de calificación.
+//
+// config_ia.php (el archivo real, con tu clave) está en .gitignore a
+// propósito -- nunca se debe subir una clave de API a un repo.
+
+define('CLAVE_API_GEMINI', 'TU_CLAVE_DE_API_ACA');

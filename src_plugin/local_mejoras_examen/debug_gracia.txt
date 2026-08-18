@@ -571,3 +571,41 @@
 2026-08-18 14:58:18 - sumgrades actualizado: 1 -> 0.9
 2026-08-18 14:58:18 - === Fin OK: penalización aplicada y gradebook actualizado ===
 2026-08-18 14:58:18 - WEBHOOK: intento 107 envío inmediato EXITOSO
+2026-08-19 00:03:22 - EVENTO recibido: mod_quiz\event\attempt_submitted objectid=108 -> intento_id resuelto=108
+2026-08-19 00:03:22 - === Inicio procesar_penalizacion_diferida, intento_id=108 ===
+2026-08-19 00:03:22 - porcentaje_penalizacion=10
+2026-08-19 00:03:22 - timestart=1787094139 timefinish=1787094202 timelimit=60 timeclose=0 graceperiod=3600 overduehandling=graceperiod
+2026-08-19 00:03:22 - deadline_por_tiempo=1787094199 deadline_por_cierre=0 deadline_final=1787094199 gracewindow=3600
+2026-08-19 00:03:22 - es_tardia=1 dentro_gracia=1
+2026-08-19 00:03:22 - nota_bruta_original=0
+2026-08-19 00:03:22 - CORTE: nota_bruta_original <= 0 (probablemente falta calificación manual)
+2026-08-19 00:03:22 - WEBHOOK: intento 108 aún requiere calificación manual, se espera.
+2026-08-19 00:04:52 - EVENTO recibido: mod_quiz\event\question_manually_graded objectid=2 -> intento_id resuelto=108
+2026-08-19 00:04:52 - === Inicio procesar_penalizacion_diferida, intento_id=108 ===
+2026-08-19 00:04:52 - porcentaje_penalizacion=10
+2026-08-19 00:04:52 - timestart=1787094139 timefinish=1787094202 timelimit=60 timeclose=0 graceperiod=3600 overduehandling=graceperiod
+2026-08-19 00:04:52 - deadline_por_tiempo=1787094199 deadline_por_cierre=0 deadline_final=1787094199 gracewindow=3600
+2026-08-19 00:04:52 - es_tardia=1 dentro_gracia=1
+2026-08-19 00:04:52 - nota_bruta_original=2
+2026-08-19 00:04:52 - sumgrades actualizado: 2 -> 1.8
+2026-08-19 00:04:52 - === Fin OK: penalización aplicada y gradebook actualizado ===
+2026-08-19 00:04:52 - WEBHOOK: intento 108 envío inmediato EXITOSO
+2026-08-19 00:20:29 - EVENTO recibido: mod_quiz\event\attempt_submitted objectid=109 -> intento_id resuelto=109
+2026-08-19 00:20:29 - === Inicio procesar_penalizacion_diferida, intento_id=109 ===
+2026-08-19 00:20:29 - porcentaje_penalizacion=10
+2026-08-19 00:20:29 - timestart=1787095156 timefinish=1787095229 timelimit=60 timeclose=0 graceperiod=3600 overduehandling=graceperiod
+2026-08-19 00:20:29 - deadline_por_tiempo=1787095216 deadline_por_cierre=0 deadline_final=1787095216 gracewindow=3600
+2026-08-19 00:20:29 - es_tardia=1 dentro_gracia=1
+2026-08-19 00:20:29 - nota_bruta_original=0
+2026-08-19 00:20:29 - CORTE: nota_bruta_original <= 0 (probablemente falta calificación manual)
+2026-08-19 00:20:29 - WEBHOOK: intento 109 aún requiere calificación manual, se espera.
+2026-08-19 00:21:23 - EVENTO recibido: mod_quiz\event\question_manually_graded objectid=2 -> intento_id resuelto=109
+2026-08-19 00:21:23 - === Inicio procesar_penalizacion_diferida, intento_id=109 ===
+2026-08-19 00:21:23 - porcentaje_penalizacion=10
+2026-08-19 00:21:23 - timestart=1787095156 timefinish=1787095229 timelimit=60 timeclose=0 graceperiod=3600 overduehandling=graceperiod
+2026-08-19 00:21:23 - deadline_por_tiempo=1787095216 deadline_por_cierre=0 deadline_final=1787095216 gracewindow=3600
+2026-08-19 00:21:23 - es_tardia=1 dentro_gracia=1
+2026-08-19 00:21:23 - nota_bruta_original=1.1
+2026-08-19 00:21:23 - sumgrades actualizado: 1.1 -> 0.99
+2026-08-19 00:21:23 - === Fin OK: penalización aplicada y gradebook actualizado ===
+2026-08-19 00:21:23 - WEBHOOK: intento 109 envío inmediato EXITOSO

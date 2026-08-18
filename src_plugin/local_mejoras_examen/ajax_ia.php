@@ -1,6 +1,18 @@
 <?php
 require_once('../../config.php');
-require_once(__DIR__ . '/config_ia.php'); // Importacion del archivo local de credenciales
+
+// config_ia.php contiene la clave real de la API de Gemini y está en
+// .gitignore a propósito (no se debe subir una clave de API a un repo) --
+// así que en un clon nuevo del repo, este archivo directamente no existe.
+// require_once sobre un archivo inexistente tira un error fatal de PHP, así
+// que se chequea la existencia primero para degradar de forma prolija al
+// mismo mensaje informativo que ya estaba previsto para cuando el archivo
+// existe pero la constante no está definida.
+$archivo_config_ia = __DIR__ . '/config_ia.php';
+if (file_exists($archivo_config_ia)) {
+    require_once($archivo_config_ia);
+}
+
 require_login();
 
 header('Content-Type: application/json');

@@ -452,3 +452,25 @@ Array
 )
 
 -----------------
+2026-08-18 23:04:52 - Datos recibidos:
+Array
+(
+    [estudiante_id] => 3
+    [examen_id] => 1
+    [nota_intento] => 9
+    [nota_final] => 10
+    [timestamp] => 1787094202
+)
+
+-----------------
+2026-08-18 23:21:23 - Datos recibidos:
+Array
+(
+    [estudiante_id] => 3
+    [examen_id] => 1
+    [nota_intento] => 4.95
+    [nota_final] => 9
+    [timestamp] => 1787095229
+)
+
+-----------------
