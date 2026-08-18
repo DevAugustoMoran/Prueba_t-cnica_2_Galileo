@@ -81,3 +81,19 @@
 2026-08-18 04:56:22 - es_tardia=0 dentro_gracia=1
 2026-08-18 04:56:22 - CORTE: no es tardía o no está dentro de gracia
 2026-08-18 04:56:22 - WEBHOOK: intento 44 envío inmediato EXITOSO
+2026-08-18 05:03:07 - EVENTO recibido: mod_quiz\event\attempt_submitted objectid=45 -> intento_id resuelto=45
+2026-08-18 05:03:07 - === Inicio procesar_penalizacion_diferida, intento_id=45 ===
+2026-08-18 05:03:07 - porcentaje_penalizacion=10
+2026-08-18 05:03:07 - timestart=1787025775 timefinish=1787025787 timelimit=60 timeclose=0 graceperiod=3600 overduehandling=graceperiod
+2026-08-18 05:03:07 - deadline_por_tiempo=1787025835 deadline_por_cierre=0 deadline_final=1787025835 gracewindow=3600
+2026-08-18 05:03:07 - es_tardia=0 dentro_gracia=1
+2026-08-18 05:03:07 - CORTE: no es tardía o no está dentro de gracia
+2026-08-18 05:03:07 - WEBHOOK: intento 45 aún requiere calificación manual, se espera.
+2026-08-18 05:04:21 - EVENTO recibido: mod_quiz\event\attempt_submitted objectid=46 -> intento_id resuelto=46
+2026-08-18 05:04:21 - === Inicio procesar_penalizacion_diferida, intento_id=46 ===
+2026-08-18 05:04:21 - porcentaje_penalizacion=10
+2026-08-18 05:04:21 - timestart=1787025819 timefinish=1787025861 timelimit=60 timeclose=0 graceperiod=3600 overduehandling=graceperiod
+2026-08-18 05:04:21 - deadline_por_tiempo=1787025879 deadline_por_cierre=0 deadline_final=1787025879 gracewindow=3600
+2026-08-18 05:04:21 - es_tardia=0 dentro_gracia=1
+2026-08-18 05:04:21 - CORTE: no es tardía o no está dentro de gracia
+2026-08-18 05:04:21 - WEBHOOK: intento 46 aún requiere calificación manual, se espera.
