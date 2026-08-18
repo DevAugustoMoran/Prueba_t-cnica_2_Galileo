@@ -20,9 +20,13 @@ Write-Host "=== 2/7 - Instalando el esquema de Moodle (puede tardar un rato) ===
 # ingles -- sin esto, la UI se muestra en ingles y buena parte de la suite
 # de QA esta escrita contra el espanol real de la instancia.
 #
-# Tolerante a que la base ya este instalada (de una corrida anterior de
-# este mismo script, o de un reintento tras un fallo parcial) -- en vez de
-# abortar todo, se detecta ese caso puntual y se sigue de largo.
+# Se relaja $ErrorActionPreference solo para este comando puntual: con
+# "Stop" activo, PowerShell trata la salida de error de docker (redirigida
+# con 2>&1) como un error que corta todo el script -- sin darle la chance
+# al chequeo de "ya estaba instalada" de abajo a correr. Mismo motivo que
+# el "set +e" / "set -e" de setup.sh alrededor del mismo comando.
+$erroresPrevios = $ErrorActionPreference
+$ErrorActionPreference = "Continue"
 $salidaInstall = docker compose exec -T -u www-data moodle php admin/cli/install_database.php `
   --agree-license `
   --lang=es `
@@ -32,6 +36,7 @@ $salidaInstall = docker compose exec -T -u www-data moodle php admin/cli/install
   --fullname="QA Automatizado" `
   --shortname="QA" 2>&1
 $codigoInstall = $LASTEXITCODE
+$ErrorActionPreference = $erroresPrevios
 Write-Host $salidaInstall
 
 $seInstaloAhora = $true
