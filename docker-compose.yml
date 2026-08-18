@@ -16,6 +16,7 @@ services:
     volumes:
       - moodledata:/var/www/moodledata
       - ./src_plugin/local_mejoras_examen:/var/www/html/local/mejoras_examen
+      - ./src_plugin/local_qa_seed:/var/www/html/local/qa_seed
       - ./config.php:/var/www/html/config.php
     depends_on:
       - mariadb

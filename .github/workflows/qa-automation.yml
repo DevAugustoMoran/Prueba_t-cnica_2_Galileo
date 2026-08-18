@@ -1,0 +1,138 @@
+name: QA automatizado del examen
+
+# Tres formas de disparo, cubriendo los dos escenarios del enunciado:
+#   - schedule: la corrida mensual en sí (reemplaza las ~40h de validación
+#     manual). Elegí el día 1 de cada mes a las 06:00 UTC -- ajustá el cron
+#     si preferís otro horario.
+#   - push a main: para que un cambio nuevo en el plugin (los "cambios del
+#     mes") se valide solo, sin esperar al próximo 1ro -- así la suite "se
+#     sostiene los meses siguientes cuando entren cambios nuevos" de forma
+#     activa, no solo pasiva.
+#   - workflow_dispatch: para poder disparar una corrida a mano desde la UI
+#     de GitHub cuando haga falta (ej. para verificar este mismo workflow).
+on:
+  schedule:
+    - cron: '0 6 1 * *'
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+jobs:
+  qa-suite:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Descargar el repo
+        uses: actions/checkout@v4
+
+      - name: Levantar Moodle + MariaDB
+        run: docker compose up -d --build
+
+      - name: Esperar a que MariaDB acepte conexiones
+        run: |
+          for i in $(seq 1 30); do
+            if docker compose exec -T mariadb mariadb-admin ping -h localhost -u usuariomoodle -pclavesegura --silent; then
+              echo "MariaDB lista."
+              exit 0
+            fi
+            echo "Esperando a MariaDB... ($i/30)"
+            sleep 2
+          done
+          echo "MariaDB no respondió a tiempo." >&2
+          exit 1
+
+      - name: Instalar el esquema de Moodle (corrida de cero, sin volumen previo)
+        run: |
+          docker compose exec -T -u www-data moodle php admin/cli/install_database.php \
+            --agree-license \
+            --adminuser=admin \
+            --adminpass="${{ secrets.QA_ADMIN_PASSWORD }}" \
+            --adminemail=admin@example.com \
+            --fullname="QA Automatizado" \
+            --shortname="QA"
+
+      - name: Instalar los plugins locales (local_mejoras_examen, local_qa_seed)
+        run: docker compose exec -T -u www-data moodle php admin/cli/upgrade.php --non-interactive
+
+      - name: Configurar la URL del webhook (Cambio 3)
+        # receptor.php vive en el mismo contenedor: hace de "sistema externo"
+        # para poder probar el Cambio 3 end-to-end sin depender de un
+        # tercero real. Sin este paso, webhook_url queda vacía (default) y
+        # el plugin nunca intenta mandar nada -- confirmado contra
+        # classes/observador.php.
+        run: |
+          docker compose exec -T -u www-data moodle php admin/cli/cfg.php \
+            --component=local_mejoras_examen \
+            --name=webhook_url \
+            --set=http://localhost/local/mejoras_examen/receptor.php
+
+      - name: Esperar a que Moodle responda por HTTP
+        run: |
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:8080/login/index.php > /dev/null; then
+              echo "Moodle está sirviendo."
+              exit 0
+            fi
+            echo "Esperando a Moodle... ($i/30)"
+            sleep 2
+          done
+          echo "Moodle no respondió a tiempo." >&2
+          exit 1
+
+      - name: Instalar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: qa-automation/package-lock.json
+
+      - name: Instalar dependencias de la suite
+        working-directory: qa-automation
+        run: npm ci
+
+      - name: Instalar el navegador de Playwright
+        working-directory: qa-automation
+        run: npx playwright install --with-deps chromium
+
+      - name: Armar .env para la suite
+        working-directory: qa-automation
+        run: |
+          cat > .env << EOF
+          MOODLE_BASE_URL=http://localhost:8080
+          ADMIN_USERNAME=admin
+          ADMIN_PASSWORD=${{ secrets.QA_ADMIN_PASSWORD }}
+          TEACHER_USERNAME=qa_profesor
+          TEACHER_PASSWORD=ClaveSegura123!
+          STUDENT_USERNAME=qa_estudiante
+          STUDENT_PASSWORD=ClaveSegura123!
+          COURSE_SHORTNAME=QA-AUTOMATION
+          MOODLE_COMPOSE_SERVICE=moodle
+          EOF
+
+      - name: Correr la suite completa
+        working-directory: qa-automation
+        env:
+          CI: true
+        run: npm test
+
+      # Evidencia de la corrida, disponible incluso (y sobre todo) cuando
+      # algo falla -- if: always() para que no dependa de que el paso
+      # anterior haya salido bien.
+      - name: Publicar el reporte como evidencia de la corrida
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reporte-qa-${{ github.run_number }}
+          path: |
+            qa-automation/playwright-report/
+            qa-automation/test-results/
+          retention-days: 90
+
+      - name: Bitácora del receptor del webhook (evidencia adicional del Cambio 3)
+        if: always()
+        run: docker compose exec -T moodle cat /var/www/html/local/mejoras_examen/bitacora_webhook.txt || true
+
+      - name: Logs de Moodle (para diagnóstico si algo falló)
+        if: failure()
+        run: docker compose logs moodle
