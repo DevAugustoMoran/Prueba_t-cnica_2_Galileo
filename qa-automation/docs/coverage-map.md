@@ -22,7 +22,7 @@ justificación).
 | 9 | Calificación automática y visualización del resultado | `tests/06-student-attempt-flow.spec.ts` (mismo flujo que #6) | ✅ |
 | 10 | Profesor: ver intentos, calificar manualmente (ensayo), recalificar | `tests/10-manual-grading.spec.ts` | ✅ |
 | 11 | Profesor: override de notas y reportes del examen | `tests/11-grade-override-reports.spec.ts` | ✅ |
-| 12 | Restricciones de acceso (contraseña, ventana de fechas) | `tests/12-access-restrictions.spec.ts` | 🚧 |
+| 12 | Restricciones de acceso (contraseña, ventana de fechas) | `tests/12-access-restrictions.spec.ts` | ✅ |
 
 ## Los 4 cambios del mes
 
@@ -154,6 +154,20 @@ justificación).
   patrón `mod/quiz/report.php?mode=...` que "Calificación manual", con
   `responses`/`statistics` como nombre de modo (confirmado por los
   directorios reales de esos plugins de reporte).
+- **Restricciones de acceso**: el campo de contraseña (`quizpassword`) aparece
+  con el mismo nombre tanto en la configuración del examen como en el
+  formulario de verificación previa al iniciar el intento (confirmado contra
+  `mod/quiz/accessrule/password/rule.php`) -- Moodle combina todos los
+  chequeos previos que correspondan (contraseña, aviso de límite de tiempo,
+  etc.) en un único formulario, por eso `StudentAttemptPage.iniciarIntento`
+  completa la contraseña si el campo está presente, antes de confirmar. Los
+  campos de fecha (`timeopen`/`timeclose`) son grupos de selects
+  día/mes/año/hora/minuto con valores numéricos (confirmado contra
+  `lib/form/dateselector.php` y `datetimeselector.php`), no dependen del
+  idioma del sitio -- salvo el de minuto, limitado a pasos de 5. El bloqueo
+  por fecha se verifica de forma estructural (ausencia de cualquier link o
+  formulario hacia `startattempt.php` en la página), no por mensaje
+  traducido.
 - **La suite se valida con reset completo, no con cleanup idempotente por
   test**: `npm test` dispara `seed:reset` automáticamente (hook `pretest`), así
   que cada corrida real arranca de una base limpia. Los tests individuales no

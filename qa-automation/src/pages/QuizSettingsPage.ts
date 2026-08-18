@@ -25,6 +25,12 @@ export interface QuizSettingsInput {
   /** 0 = intentos ilimitados. */
   attempts?: number;
   grademethod?: GradeMethod;
+  /** Contraseña requerida para iniciar un intento (campo "quizpassword"). */
+  password?: string;
+  /** Fecha/hora de apertura del examen. */
+  timeopen?: Date;
+  /** Fecha/hora de cierre del examen. */
+  timeclose?: Date;
 }
 
 export interface QuizSettingsPersisted {
@@ -80,11 +86,60 @@ export class QuizSettingsPage {
       await this.page.locator('#id_grademethod').selectOption(datos.grademethod);
     }
 
+    if (datos.password !== undefined) {
+      // El campo de contraseña arranca oculto (class="d-none") detrás de un
+      // link "Haz click para insertar texto" -- comportamiento "unmask" del
+      // elemento passwordunmask, confirmado contra la instancia real. Hay
+      // que clickearlo primero para revelar el input real antes de poder
+      // completarlo.
+      //
+      // OJO: Safe Exam Browser tiene su propio campo de contraseña con el
+      // mismo texto de placeholder, así que buscarlo en toda la página da
+      // dos resultados ambiguos. Se busca el <div> más chico que realmente
+      // envuelve a #id_quizpassword (con :has()) y se limita la búsqueda del
+      // link a ESE contenedor -- estructuralmente correcto sin depender del
+      // orden de las secciones en el documento.
+      const contenedorPassword = this.page.locator('div:has(#id_quizpassword)').last();
+      const linkRevelar = contenedorPassword.getByText('Haz click para insertar texto');
+      if (await linkRevelar.count() > 0) {
+        await linkRevelar.click();
+      }
+      await this.page.locator('#id_quizpassword').fill(datos.password);
+    }
+
+    if (datos.timeopen) {
+      await this.seleccionarFechaHora('timeopen', datos.timeopen);
+    }
+
+    if (datos.timeclose) {
+      await this.seleccionarFechaHora('timeclose', datos.timeclose);
+    }
+
     await this.page.locator('#id_submitbutton, input[name="submitbutton"]').first().click();
 
     // Assert real de que Moodle aceptó el formulario y navegó a la vista del
     // examen recién creado (no se quedó en el form con errores de validación).
     await expect(this.page).toHaveURL(/mod\/quiz\/view\.php\?id=\d+/, { timeout: 15_000 });
+  }
+
+  /**
+   * Completa un campo de tipo "date_time_selector" (usado por timeopen y
+   * timeclose): un grupo de selects día/mes/año/hora/minuto más un checkbox
+   * "Habilitar". Confirmado contra lib/form/dateselector.php y
+   * datetimeselector.php: los VALUES de los selects son numéricos (día 1-31,
+   * mes 1-12, año completo, hora 0-23), no dependen del idioma -- salvo el
+   * de minuto, que solo ofrece pasos de a 5 (00,05,10...55), por eso se
+   * redondea hacia abajo al múltiplo de 5 más cercano.
+   */
+  async seleccionarFechaHora(prefijoCampo: string, fecha: Date) {
+    await this.page.locator(`#id_${prefijoCampo}_enabled`).check();
+    await this.page.locator(`#id_${prefijoCampo}_day`).selectOption(String(fecha.getDate()));
+    await this.page.locator(`#id_${prefijoCampo}_month`).selectOption(String(fecha.getMonth() + 1));
+    await this.page.locator(`#id_${prefijoCampo}_year`).selectOption(String(fecha.getFullYear()));
+    await this.page.locator(`#id_${prefijoCampo}_hour`).selectOption(String(fecha.getHours()));
+
+    const minutoRedondeado = fecha.getMinutes() - (fecha.getMinutes() % 5);
+    await this.page.locator(`#id_${prefijoCampo}_minute`).selectOption(String(minutoRedondeado));
   }
 
   /**

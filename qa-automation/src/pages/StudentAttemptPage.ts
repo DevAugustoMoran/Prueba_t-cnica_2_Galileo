@@ -21,7 +21,7 @@ export class StudentAttemptPage {
    * intento" que hay que confirmar (mismo comportamiento que la vista previa
    * del profesor).
    */
-  async iniciarIntento(cmid: number) {
+  async iniciarIntento(cmid: number, opciones?: { password?: string }) {
     // studentPage arranca en blanco (about:blank): hay que cargar una página
     // real de Moodle primero para que M.cfg exista, o page.evaluate falla
     // con "Cannot read properties of undefined (reading 'cfg')".
@@ -29,6 +29,22 @@ export class StudentAttemptPage {
 
     const sesskey = await this.getSesskey();
     await this.page.goto(`/mod/quiz/startattempt.php?cmid=${cmid}&sesskey=${sesskey}`);
+
+    // Si el examen requiere contraseña, Moodle combina ese chequeo con
+    // cualquier otro (ej. el aviso de límite de tiempo) en un mismo
+    // formulario previo -- el campo "quizpassword" (mismo nombre que en la
+    // configuración del examen) aparece ahí si corresponde.
+    const campoPassword = this.page.locator('#id_quizpassword');
+    if (opciones?.password !== undefined && (await campoPassword.count()) > 0) {
+      // Mismo comportamiento "unmask" que en la configuración del examen: el
+      // campo arranca oculto detrás de un link "Haz click para insertar
+      // texto" que hay que clickear primero para revelar el input real.
+      const linkRevelar = this.page.getByText('Haz click para insertar texto');
+      if (await linkRevelar.count() > 0) {
+        await linkRevelar.first().click();
+      }
+      await campoPassword.fill(opciones.password);
+    }
 
     const botonComenzar = this.page.getByRole('button', { name: 'Comenzar intento' });
     if (await botonComenzar.count() > 0) {
