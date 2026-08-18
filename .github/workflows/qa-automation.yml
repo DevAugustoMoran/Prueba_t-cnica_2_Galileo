@@ -20,7 +20,12 @@ on:
 jobs:
   qa-suite:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # 30 minutos no alcanzaba: construir la imagen de Moodle desde cero
+    # (clonar el repo completo, instalar paquetes) más las dependencias de
+    # Playwright, todo en una corrida en frío sin ningún caché, se pasa de
+    # esa marca. Con margen para que la corrida mensual no dependa de que
+    # justo ese mes el runner esté más rápido de lo normal.
+    timeout-minutes: 45
 
     steps:
       - name: Descargar el repo
