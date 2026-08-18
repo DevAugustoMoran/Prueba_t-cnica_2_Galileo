@@ -155,6 +155,17 @@ jobs:
         if: always()
         run: docker compose exec -T moodle cat /var/log/moodle_cron.log || true
 
+      - name: Estado real de la cola de webhooks (diagnóstico del Cambio 3)
+        # local_mejoras_webhook guarda, por cada intento de entrega, el error
+        # real de curl o el código HTTP de respuesta -- mucho más directo que
+        # inferir por el log genérico de cron. SELECT * para no arriesgar un
+        # error de SQL por un nombre de columna no confirmado.
+        if: always()
+        run: |
+          docker compose exec -T mariadb mariadb \
+            -u usuariomoodle -pclavesegura moodle_db \
+            -e "SELECT * FROM mdl_local_mejoras_webhook ORDER BY id DESC LIMIT 5\G" || true
+
       - name: Logs de Moodle (para diagnóstico si algo falló)
         if: failure()
         run: docker compose logs moodle
