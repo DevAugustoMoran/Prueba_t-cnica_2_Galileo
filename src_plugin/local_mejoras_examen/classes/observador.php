@@ -13,25 +13,24 @@ class observador {
         $registro_intento = $DB->get_record('quiz_attempts', ['id' => $id_intento]);
         if (!$registro_intento) return;
 
-        // Extraer la nota final consolidada en el libro de calificaciones
-        $registro_nota_final = $DB->get_record('quiz_grades', [
-            'quiz' => $registro_intento->quiz, 
-            'userid' => $registro_intento->userid
-        ]);
-        
-        $nota_final = $registro_nota_final ? $registro_nota_final->grade : $registro_intento->sumgrades;
-
-        $carga_util = json_encode([
+        // Solo encolamos la referencia al intento. Los datos reales (nota_intento,
+        // nota_final) se calculan recién en observador::intentar_notificar_resultado
+        // (intento de envío inmediato, disparado apenas la nota queda final) o, si eso
+        // falla, en la tarea programada task\procesar_webhooks (reintento por cron).
+        // Nunca se congelan acá porque en ese momento la nota puede no existir todavía
+        // (preguntas de ensayo) ni tener aplicada la penalización del período de gracia.
+        $carga_util_inicial = json_encode([
             'estudiante_id' => $registro_intento->userid,
             'examen_id'     => $registro_intento->quiz,
-            'nota_intento'  => (float) $registro_intento->sumgrades,
-            'nota_final'    => (float) $nota_final,
-            'timestamp'     => time()
+            'nota_intento'  => null,
+            'nota_final'    => null,
+            'timestamp'     => time(),
+            'nota'          => 'pendiente de calculo al momento del envio',
         ]);
 
         $registro_webhook = new \stdClass();
         $registro_webhook->intento_id = $id_intento;
-        $registro_webhook->carga_util = $carga_util;
+        $registro_webhook->carga_util = $carga_util_inicial;
         $registro_webhook->estado = 'pendiente';
         $registro_webhook->reintentos = 0;
         $registro_webhook->tiempo_creacion = time();
@@ -43,12 +42,84 @@ class observador {
     // Método para el Cambio 4: Iniciar la penalización por gracia
     public static function aplicar_penalizacion_gracia(\core\event\base $evento) {
         global $DB;
-        $intento_id = $evento->objectid;
 
-        self::log_debug("EVENTO recibido: " . get_class($evento) . " objectid={$intento_id}");
+        // La mayoría de los eventos de mod_quiz usan quiz_attempts como objecttable,
+        // así que objectid ES el attempt id. Pero question_manually_graded usa
+        // 'question' como objecttable (objectid = id de la pregunta) y pone el attempt
+        // id en other['attemptid']. Resolvemos de forma robusta para ambos casos.
+        $otros = $evento->other ?? [];
+        $intento_id = isset($otros['attemptid']) ? (int) $otros['attemptid'] : (int) $evento->objectid;
 
-        // Delegación al final del ciclo de vida para evitar sobreescrituras de Moodle
-        \core_shutdown_manager::register_function('\local_mejoras_examen\observador::procesar_penalizacion_diferida', [$intento_id]);
+        self::log_debug("EVENTO recibido: " . get_class($evento) . " objectid={$evento->objectid} -> intento_id resuelto={$intento_id}");
+
+        // Un solo punto de entrada diferido que encadena ambos pasos EN ORDEN:
+        // primero se evalúa/aplica la penalización por gracia (Cambio 4), y recién
+        // después se intenta notificar el resultado (Cambio 3) -- así el payload
+        // del webhook siempre refleja la nota ya penalizada, nunca la previa.
+        \core_shutdown_manager::register_function('\local_mejoras_examen\observador::procesar_flujo_diferido', [$intento_id]);
+    }
+
+    // Orquesta penalización + notificación, en ese orden, para un mismo intento.
+    public static function procesar_flujo_diferido($intento_id) {
+        self::procesar_penalizacion_diferida($intento_id);
+        self::intentar_notificar_resultado($intento_id);
+    }
+
+    // Método para el Cambio 3: intento de envío inmediato (no espera al cron).
+    // Si el envío falla, el registro queda 'fallido' en la cola y la tarea
+    // programada task\procesar_webhooks se encarga de reintentarlo más adelante --
+    // ahí está la resiliencia real. Este método solo cubre el camino feliz rápido.
+    public static function intentar_notificar_resultado($intento_id) {
+        global $DB;
+
+        $url_destino = get_config('local_mejoras_examen', 'webhook_url');
+        if (empty($url_destino)) {
+            self::log_debug("WEBHOOK: endpoint no configurado, no se intenta enviar.");
+            return;
+        }
+
+        $registro_intento = $DB->get_record('quiz_attempts', ['id' => $intento_id]);
+        if (!$registro_intento) {
+            return;
+        }
+
+        // sumgrades es NULL (no 0) mientras falte calificación manual. Si todavía no
+        // está lista, no hay nada que notificar todavía: este mismo flujo se vuelve a
+        // disparar cuando el profesor termine de calificar (question_manually_graded).
+        if ($registro_intento->sumgrades === null) {
+            self::log_debug("WEBHOOK: intento {$intento_id} aún requiere calificación manual, se espera.");
+            return;
+        }
+
+        $registro_webhook = $DB->get_record('local_mejoras_webhook', ['intento_id' => $intento_id]);
+        if (!$registro_webhook) {
+            // Defensivo: si por algún motivo no quedó encolado al enviar, lo encolamos ahora.
+            $registro_webhook = new \stdClass();
+            $registro_webhook->intento_id = $intento_id;
+            $registro_webhook->carga_util = '{}';
+            $registro_webhook->estado = 'pendiente';
+            $registro_webhook->reintentos = 0;
+            $registro_webhook->tiempo_creacion = time();
+            $registro_webhook->tiempo_modificacion = time();
+            $registro_webhook->id = $DB->insert_record('local_mejoras_webhook', $registro_webhook);
+        }
+
+        // Ya se entregó con éxito antes: no reenviar. Este flujo puede dispararse más
+        // de una vez para el mismo intento (por ejemplo si luego se recalifica).
+        if ($registro_webhook->estado === 'completado') {
+            return;
+        }
+
+        if ($registro_webhook->reintentos >= 5) {
+            self::log_debug("WEBHOOK: intento {$intento_id} agotó los reintentos, requiere revisión manual.");
+            return;
+        }
+
+        $registro_webhook->carga_util = json_encode(notificador::construir_carga_util($registro_intento));
+        $DB->update_record('local_mejoras_webhook', $registro_webhook);
+
+        $exito = notificador::enviar($registro_webhook, $url_destino);
+        self::log_debug("WEBHOOK: intento {$intento_id} envío inmediato " . ($exito ? "EXITOSO" : "FALLIDO, queda en cola para reintento por cron"));
     }
 
     // Log temporal de diagnóstico: escribe cada paso de la evaluación a un archivo

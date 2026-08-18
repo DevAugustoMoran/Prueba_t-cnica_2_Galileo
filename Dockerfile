@@ -17,4 +17,11 @@ RUN git clone -b MOODLE_403_STABLE --depth 1 https://github.com/moodle/moodle.gi
 # Crear directorio de datos y asignar permisos al usuario de Apache (www-data)
 RUN mkdir /var/www/moodledata \
     && chown -R www-data:www-data /var/www/html /var/www/moodledata \
-    && chmod -R 777 /var/www/moodledata
+    && chmod -R 777 /var/www/moodledata \
+    && touch /var/log/moodle_cron.log && chown www-data:www-data /var/log/moodle_cron.log
+
+RUN touch /var/log/moodle_cron.log && chown www-data:www-data /var/log/moodle_cron.log
+
+   COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+   RUN chmod +x /usr/local/bin/entrypoint.sh
+   ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]

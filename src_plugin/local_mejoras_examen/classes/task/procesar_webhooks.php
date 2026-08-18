@@ -34,40 +34,37 @@ class procesar_webhooks extends \core\task\scheduled_task {
         foreach ($registros as $registro) {
             mtrace("Procesando intento ID: " . $registro->intento_id);
 
-            // Inicializacion de peticion cURL
-            $ch = curl_init($url_destino);
-            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-            curl_setopt($ch, CURLOPT_POST, true);
-            curl_setopt($ch, CURLOPT_POSTFIELDS, $registro->carga_util);
-            curl_setopt($ch, CURLOPT_HTTPHEADER, [
-                'Content-Type: application/json',
-                'Accept: application/json'
-            ]);
-            curl_setopt($ch, CURLOPT_TIMEOUT, 10);
-
-            $respuesta = curl_exec($ch);
-            $codigo_http = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-            $error_curl = curl_error($ch);
-            curl_close($ch);
-
-            // Actualizacion de metadatos de auditoria
-            $registro->tiempo_modificacion = time();
-            $registro->respuesta_http = $codigo_http;
-
-            // Evaluacion del codigo de estado para determinar el exito o fallo
-            if ($codigo_http >= 200 && $codigo_http < 300) {
-                $registro->estado = 'completado';
-                $registro->registro_error = 'Exito';
-                mtrace(" -> Envio exitoso. HTTP {$codigo_http}.");
-            } else {
+            // Releemos el intento en tiempo real: no confiamos en ningún snapshot
+            // congelado, porque para preguntas de ensayo la nota todavía no existe al
+            // encolar, y porque la penalización del período de gracia (Cambio 4) puede
+            // aplicarse en cualquier momento antes de este reintento.
+            $registro_intento = $DB->get_record('quiz_attempts', ['id' => $registro->intento_id]);
+            if (!$registro_intento) {
+                mtrace(" -> El intento ya no existe. Se marca como fallido sin reintentar.");
                 $registro->estado = 'fallido';
-                $registro->reintentos += 1;
-                $registro->registro_error = $error_curl ? "cURL Error: $error_curl" : "HTTP Status: $codigo_http. Resp: $respuesta";
-                mtrace(" -> Envio fallido. HTTP {$codigo_http}. Reintento #" . $registro->reintentos);
+                $registro->registro_error = 'El intento fue eliminado antes de poder notificarse.';
+                $registro->tiempo_modificacion = time();
+                $DB->update_record('local_mejoras_webhook', $registro);
+                continue;
             }
 
-            // Persistencia del estado actualizado
-            $DB->update_record('local_mejoras_webhook', $registro);
+            // sumgrades es NULL (no 0) mientras falte calificación manual (preguntas de
+            // ensayo). Si todavía no está lista, esperamos al próximo ciclo de cron sin
+            // gastar reintentos ni marcar el envío como fallido: no es un fallo de red,
+            // es que la nota real todavía no existe.
+            if ($registro_intento->sumgrades === null) {
+                mtrace(" -> El intento todavía requiere calificación manual. Se reintentará más adelante.");
+                continue;
+            }
+
+            $registro->carga_util = json_encode(\local_mejoras_examen\notificador::construir_carga_util($registro_intento));
+            $exito = \local_mejoras_examen\notificador::enviar($registro, $url_destino);
+
+            if ($exito) {
+                mtrace(" -> Envio exitoso. HTTP {$registro->respuesta_http}.");
+            } else {
+                mtrace(" -> Envio fallido. HTTP {$registro->respuesta_http}. Reintento #" . $registro->reintentos);
+            }
         }
     }
 }
