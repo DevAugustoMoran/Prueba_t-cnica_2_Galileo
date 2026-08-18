@@ -173,6 +173,35 @@ export class QuestionBankPage {
   }
 
   /**
+   * Abre el formulario de edición real de una pregunta ya existente
+   * (navegando fila -> botón "Editar" -> ítem de menú "Editar pregunta", el
+   * único camino que realmente lleva ahí) y devuelve su id.
+   *
+   * Reutilizable: lo usan tanto verificarEnListado (para leer el qtype) como
+   * cualquier test que necesite el id real de una pregunta para agregarla al
+   * examen (scope #3), sin tener que rehacer esta navegación.
+   */
+  async obtenerIdPregunta(courseId: number, nombre: string): Promise<number> {
+    await this.page.goto(`/question/edit.php?courseid=${courseId}`);
+
+    // El nombre de la pregunta en el listado es un trigger de renombrado en
+    // línea (href="#", no navega), no un link al formulario de edición. El
+    // botón "Editar" tampoco navega directo: abre un menú desplegable
+    // (Vista previa / Editar pregunta / Duplicar / Borrar / ...); hay que
+    // elegir "Editar pregunta" para llegar al formulario real.
+    // .last(): con reset completo esto no debería hacer falta, pero es
+    // inofensivo dejarlo como red de seguridad ante corridas parciales.
+    const fila = this.page.getByRole('row', { name: nombre }).last();
+    await expect(fila).toBeVisible({ timeout: 10_000 });
+
+    await fila.getByRole('button', { name: 'Editar', exact: true }).click();
+    await this.page.getByRole('menuitem', { name: 'Editar pregunta' }).click();
+
+    const campoId = this.page.locator('input[name="id"]');
+    return parseInt(await campoId.inputValue(), 10);
+  }
+
+  /**
    * Verifica que una pregunta con el nombre dado aparezca listada en el banco
    * de preguntas, y que sea del tipo esperado. Assert real de persistencia:
    * no alcanza con que guardar() haya navegado sin error, confirmamos que la
@@ -182,29 +211,10 @@ export class QuestionBankPage {
    * sitio y no lo tengo confirmado).
    */
   async verificarEnListado(courseId: number, nombre: string, qtypeEsperado: string) {
-    await this.page.goto(`/question/edit.php?courseid=${courseId}`);
-
-    // El nombre de la pregunta en el listado es un trigger de renombrado en
-    // línea (href="#", no navega), no un link al formulario de edición -- y su
-    // nombre accesible completo incluye texto extra del ícono pegado al lado
-    // ("... Editar el nombre de la pregunta"), por eso no se busca por nombre
-    // exacto. Se usa el botón real "Editar" de la columna Acciones, que sí
-    // abre el formulario de edición de verdad.
-    // .last(): si hubo corridas previas sin --reset, puede haber más de una
-    // fila con este nombre (quedan de intentos anteriores). Nos quedamos con
-    // la más reciente -- ver nota en QuestionBankPage sobre idempotencia real.
-    const fila = this.page.getByRole('row', { name: nombre }).last();
-    await expect(fila).toBeVisible({ timeout: 10_000 });
-
-    await fila.getByRole('button', { name: 'Editar', exact: true }).click();
-
-    // "Editar" abre un menú desplegable (Vista previa / Editar pregunta /
-    // Duplicar / Borrar / ...), no navega directo. Hay que elegir la opción
-    // real del menú para llegar al formulario de edición.
-    await this.page.getByRole('menuitem', { name: 'Editar pregunta' }).click();
-
+    const idPregunta = await this.obtenerIdPregunta(courseId, nombre);
     await expect(this.page.locator('input[name="qtype"]')).toHaveValue(qtypeEsperado, {
       timeout: 10_000,
     });
+    return idPregunta;
   }
 }

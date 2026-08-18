@@ -1,4 +1,5 @@
 import { Page, expect } from '@playwright/test';
+import { extraerParametroEntero } from './urlUtils';
 
 export class CoursePage {
   constructor(private readonly page: Page) {}
@@ -25,6 +26,26 @@ export class CoursePage {
       throw new Error(`No se pudo extraer el id del curso desde el link: ${href}`);
     }
     return parseInt(coincidencia[1], 10);
+  }
+
+  /**
+   * Resuelve el course-module id (cmid) de una actividad ya existente en el
+   * curso, a partir de su nombre visible (ej. el link del examen en el índice
+   * del curso). Útil para tests que operan sobre una actividad creada en un
+   * test anterior (scope #1 creó "Examen QA E2E"; scope #3 necesita su cmid
+   * para agregarle preguntas).
+   */
+  async getActivityCmId(courseId: number, nombreActividad: string): Promise<number> {
+    await this.goto(courseId);
+
+    const enlace = this.page.getByRole('link', { name: nombreActividad, exact: true });
+    await expect(enlace).toBeVisible({ timeout: 10_000 });
+
+    const href = await enlace.getAttribute('href');
+    if (!href) {
+      throw new Error(`No se encontró el link de la actividad "${nombreActividad}".`);
+    }
+    return extraerParametroEntero(href, 'id', this.page.url());
   }
 
   async goto(courseId: number) {

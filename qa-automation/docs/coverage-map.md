@@ -13,7 +13,7 @@ justificación).
 |---|---|---|---|
 | 1 | Crear y configurar un examen (timing, intentos, método de calificación) | `tests/01-quiz-setup.spec.ts` | ✅ |
 | 2 | Banco de preguntas: crear preguntas de varios tipos | `tests/02-question-bank.spec.ts` | ✅ |
-| 3 | Agregar preguntas al examen (del banco y aleatorias) | `tests/03-add-questions.spec.ts` | 🚧 |
+| 3 | Agregar preguntas al examen (del banco y aleatorias) | `tests/03-add-questions.spec.ts` | ✅ |
 | 4 | Configurar opciones de revisión | `tests/04-review-options.spec.ts` | 🚧 |
 | 5 | Vista previa del examen como profesor | `tests/05-teacher-preview.spec.ts` | 🚧 |
 | 6 | Estudiante: iniciar intento, responder, navegar, marcar para revisar | `tests/06-student-attempt-flow.spec.ts` | 🚧 |
@@ -72,6 +72,15 @@ justificación).
   a diferencia de Respuesta corta y Numérica (donde es un `<input>` simple) --
   es una particularidad real de `qtype_multichoice`, no una inconsistencia del
   código de test.
+- **Agregar preguntas al examen usa las acciones documentadas directamente en
+  `mod/quiz/edit.php`** (`?addquestion=<id>`, `?addrandom=1&categoryid=...`),
+  no el panel lateral dinámico del banco de preguntas embebido en esa
+  pantalla. Mismo criterio que con el modal de actividades y el widget de
+  filtros: se prioriza la acción real (que sí es scope) sobre la mecánica de
+  un selector de UI genérico.
+- El conteo de preguntas del examen usa `[id^="mod-indent-outer-slot-"]`
+  (confirmado contra `question_slot.mustache`), válido para cualquier tipo de
+  pregunta -- incluidas las aleatorias -- sin depender de texto traducido.
 - **La suite se valida con reset completo, no con cleanup idempotente por
   test**: `npm test` dispara `seed:reset` automáticamente (hook `pretest`), así
   que cada corrida real arranca de una base limpia. Los tests individuales no
