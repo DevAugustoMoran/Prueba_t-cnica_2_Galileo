@@ -1,5 +1,6 @@
 import { Page, expect } from '@playwright/test';
 import { extraerParametroEntero } from './urlUtils';
+import { descartarTourSiAparece } from './tourUtils';
 
 export class CoursePage {
   constructor(private readonly page: Page) {}
@@ -63,29 +64,7 @@ export class CoursePage {
 
   async goto(courseId: number) {
     await this.page.goto(`/course/view.php?id=${courseId}`);
-    await this.descartarTourSiAparece();
-  }
-
-  /**
-   * Moodle muestra un tour de onboarding ("Activar modo de edición") la
-   * primera vez que se visita la página de un curso en un contexto nuevo --
-   * como cada reset crea el curso de cero, vuelve a considerarse "nuevo" en
-   * cada corrida. El tour tapa la página con un diálogo modal, bloqueando
-   * cualquier interacción posterior si no se descarta primero.
-   *
-   * El tour lo carga un módulo JS aparte que renderiza con un pequeño delay
-   * después del contenido principal: un chequeo instantáneo (.count()) corre
-   * antes de que aparezca y siempre da 0. Se espera activamente un par de
-   * segundos por si aparece, tolerando que nunca lo haga.
-   */
-  private async descartarTourSiAparece() {
-    const botonSalir = this.page.getByRole('button', { name: 'Salir del tour' });
-    try {
-      await botonSalir.waitFor({ state: 'visible', timeout: 3_000 });
-      await botonSalir.click();
-    } catch {
-      // El tour no apareció en este load -- no hay nada que descartar.
-    }
+    await descartarTourSiAparece(this.page);
   }
 
   /**

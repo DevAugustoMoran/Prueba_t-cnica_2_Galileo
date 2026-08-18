@@ -35,6 +35,16 @@ export class QuizContentPage {
   }
 
   /**
+   * Navega a uno de los reportes del examen. "responses" y "statistics" son
+   * los nombres reales de los plugins de reporte (confirmado por los
+   * directorios mod/quiz/report/responses y mod/quiz/report/statistics),
+   * usados tal cual como valor del parámetro "mode".
+   */
+  async gotoReporte(cmid: number, modo: 'responses' | 'statistics') {
+    await this.page.goto(`/mod/quiz/report.php?id=${cmid}&mode=${modo}`);
+  }
+
+  /**
    * Cuenta la cantidad de preguntas (slots) actualmente en el examen. Cada
    * slot -- de cualquier tipo, incluidas las preguntas aleatorias -- se
    * renderiza con id="mod-indent-outer-slot-{id}" (confirmado contra

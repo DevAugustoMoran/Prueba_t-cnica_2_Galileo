@@ -21,7 +21,7 @@ justificación).
 | 8 | Estudiante: enviar el intento | `tests/06-student-attempt-flow.spec.ts` (mismo flujo que #6) | ✅ |
 | 9 | Calificación automática y visualización del resultado | `tests/06-student-attempt-flow.spec.ts` (mismo flujo que #6) | ✅ |
 | 10 | Profesor: ver intentos, calificar manualmente (ensayo), recalificar | `tests/10-manual-grading.spec.ts` | ✅ |
-| 11 | Profesor: override de notas y reportes del examen | `tests/11-grade-override-reports.spec.ts` | 🚧 |
+| 11 | Profesor: override de notas y reportes del examen | `tests/11-grade-override-reports.spec.ts` | ✅ |
 | 12 | Restricciones de acceso (contraseña, ventana de fechas) | `tests/12-access-restrictions.spec.ts` | 🚧 |
 
 ## Los 4 cambios del mes
@@ -142,6 +142,18 @@ justificación).
   selector de atributo "contiene", no por id completo. La pregunta a
   calificar se identifica por su nombre real en la fila de la tabla índice,
   no por slot/questionid (dinámicos según qué preguntas tenga cada examen).
+- **Override de notas** se hace vía el Informe del calificador
+  (`grade/report/grader/`), no dentro del examen: escribir directo sobre la
+  celda de nota calculada y guardar es, por definición en Moodle, lo que
+  protege esa nota de recálculos automáticos futuros. Funciona sin activar
+  nada porque "Calificación rápida" (`quickgrading`) viene habilitada por
+  defecto a nivel de sitio (confirmado contra
+  `grade/report/grader/settings.php`: `admin_setting_configcheckbox(...,
+  1)`). El botón de guardar tiene id estable `#gradersubmit`.
+- Los reportes de "Respuestas" y "Estadísticas" del examen usan el mismo
+  patrón `mod/quiz/report.php?mode=...` que "Calificación manual", con
+  `responses`/`statistics` como nombre de modo (confirmado por los
+  directorios reales de esos plugins de reporte).
 - **La suite se valida con reset completo, no con cleanup idempotente por
   test**: `npm test` dispara `seed:reset` automáticamente (hook `pretest`), así
   que cada corrida real arranca de una base limpia. Los tests individuales no
