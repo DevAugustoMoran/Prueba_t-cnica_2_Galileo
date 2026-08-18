@@ -1,0 +1,7 @@
+# Los scripts bash necesitan finales de línea Unix (LF) para poder ejecutarse
+# dentro de los contenedores Linux -- si Windows los convierte a CRLF al
+# clonar (según la configuración de autocrlf de quien clona), la línea
+# shebang (#!/bin/bash) queda rota y falla con un error confuso ("no such
+# file or directory" apuntando al propio script, que sí existe).
+*.sh text eol=lf
+entrypoint.sh text eol=lf
