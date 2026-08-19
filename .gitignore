@@ -13,3 +13,9 @@ playwright-report/
 test-results/
 
 src_plugin/local_mejoras_examen/config_ia.php
+
+# Logs/bitácoras que el plugin genera en tiempo de ejecución -- no son
+# código fuente, crecen con cada corrida, no deben versionarse.
+src_plugin/local_mejoras_examen/bitacora_gracia.txt
+src_plugin/local_mejoras_examen/bitacora_webhook.txt
+src_plugin/local_mejoras_examen/debug_gracia.txt

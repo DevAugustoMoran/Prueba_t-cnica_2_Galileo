@@ -1,5 +1,0 @@
-2026-08-17 05:39:05 - Iniciando observador de gracia...
- -> Metricas: Inicio=1786941395, Limite=60, Estricto=1786941455, Fin=1786941545, Excedido en=90s
- -> Penalizacion aplicada: Nota original=9.00000, Nueva nota=8.1
- -> Gradebook actualizado con exito.
-------------------------

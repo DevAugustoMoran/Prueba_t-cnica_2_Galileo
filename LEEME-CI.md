@@ -1,21 +1,20 @@
 # Automatización del disparo (cierra el requisito "corre sin intervención humana")
 
-Estos dos archivos van en la **raíz de tu repo** (no dentro de `qa-automation/`):
-
-- `docker-compose.yml` (reemplaza al tuyo -- el único cambio real es agregar
-  el mount de `local_qa_seed`, que faltaba)
-- `.github/workflows/qa-automation.yml` (nuevo)
-
 ## Qué hace el workflow
 
-Instala Moodle + los plugins **desde cero** (no depende de tu volumen local
-de MariaDB, que en un runner de CI arranca vacío) y corre la suite completa.
-Se dispara:
+`.github/workflows/qa-automation.yml` instala Moodle + los plugins **desde
+cero** en cada corrida (no depende de ningún volumen ni estado previo) y
+corre la suite completa de 20 tests. Se dispara:
 
 - **El día 1 de cada mes** (`cron: '0 6 1 * *'`) -- la corrida mensual en sí.
 - **En cada push a `main`** -- para que un cambio nuevo en el plugin se
   valide solo, sin esperar al próximo mes.
 - **A demanda**, desde la pestaña "Actions" de GitHub (`workflow_dispatch`).
+
+Validado de punta a punta contra una corrida real: instala el esquema de
+Moodle en español, los plugins, configura el webhook del Cambio 3, y corre
+los 20 tests con evidencia (reporte HTML, traces, logs de diagnóstico
+adicionales) subida como artifact de cada corrida.
 
 ## Un solo paso manual, único (no por corrida)
 
@@ -31,19 +30,11 @@ Esto no rompe el requisito de "sin intervención humana": es configuración de
 una sola vez para el repositorio, no algo que alguien tenga que hacer en
 cada corrida -- igual que cualquier credencial de CI.
 
-## Lo que no pude validar
+## Cómo llegó a este estado
 
-A diferencia de absolutamente todo lo demás construido en esta sesión (cada
-fix de la suite se probó contra tu instancia real antes de dártelo), este
-workflow no lo pude ejecutar yo mismo -- no tengo forma de correr GitHub
-Actions desde acá. Lo armé confirmando cada comando contra el código fuente
-real de Moodle (`admin/cli/install_database.php`, `admin/cli/cfg.php`,
-`admin/cli/upgrade.php`), pero el punto de mayor incertidumbre es el
-healthcheck de MariaDB (`mariadb-admin ping` -- nombre moderno del binario,
-no confirmado contra la imagen real corriendo).
-
-Te recomiendo dispararlo una vez a mano (`workflow_dispatch`, desde la
-pestaña "Actions") antes de confiar en que la corrida mensual programada
-vaya a andar sola. Si falla, pasame el log del job (igual que hiciste con
-cada reporte de Playwright durante toda la sesión) y lo ajustamos con la
-misma mecánica que usamos para todo lo demás.
+El workflow pasó por varias vueltas de ajuste real antes de quedar estable
+(idioma del sitio, permisos de archivos en el checkout de git, un bug de
+`set -e` matando un proceso de fondo, timing real de tareas programadas de
+Moodle) -- el detalle completo de cada hallazgo está en
+`qa-automation/docs/decisiones-y-direccion-ia.md`. Quedó resuelto en el
+código, no evitado en el test.

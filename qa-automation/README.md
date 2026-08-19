@@ -22,14 +22,17 @@ Cubre el scope completo pedido en el enunciado y los 4 cambios del mes.
 
 ## Requisitos
 
-- El stack de Docker del repo principal levantado (`docker compose up -d` desde la
-  raíz del repo) y accesible en `http://localhost:8080`.
+- El stack de Docker levantado y Moodle instalado — ver **el `README.md` de
+  la raíz del repo** para el proceso completo (`./setup.sh` /
+  `.\setup.ps1` lo hacen todo en un solo paso: Moodle, plugins, idioma,
+  webhook configurado).
 - Node.js 20+.
-- El plugin `local_qa_seed` copiado a `local/qa_seed` dentro del contenedor de
-  Moodle (igual que `local_mejoras_examen`: agregar el bind mount correspondiente
-  en `docker-compose.yml` o copiarlo a mano).
 
-## Setup
+Si ya corriste `setup.sh`/`setup.ps1` desde la raíz, esta carpeta ya está
+lista (`npm install` y el navegador de Playwright quedan instalados como
+parte de ese script) — no hace falta nada más acá.
+
+## Setup manual (si no usaste setup.sh/setup.ps1)
 
 ```bash
 cd qa-automation
@@ -80,6 +83,7 @@ el comportamiento real de la suite. Para validar de verdad, siempre `npm test`.
 
 ## Estado actual
 
-Ver `docs/coverage-map.md` para el detalle de qué está cubierto y qué falta.
-Este README y el mapa de cobertura se actualizan a medida que se agrega cada
-bloque de tests.
+Cobertura completa: los 12 ítems del scope pedido más los 4 cambios del mes,
+20 tests en total. Ver `docs/coverage-map.md` para el detalle de qué cubre
+cada uno, y `docs/40h-a-2h.md` / `docs/decisiones-y-direccion-ia.md` para el
+resto de la documentación del proyecto.

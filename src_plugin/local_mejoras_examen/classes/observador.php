@@ -215,8 +215,24 @@ class observador {
             ? ($nota_bruta_original / $examen->sumgrades) * $examen->grade
             : 0;
 
+        // La nota ajustada del MENSAJE se calcula a partir del resultado
+        // propio de ESTE intento ($nota_bruta_penalizada, ya calculada más
+        // arriba), no de $nueva_nota_escalada (que sale de
+        // quiz_save_best_grade(), la "mejor nota entre TODOS los intentos"
+        // del alumno en este examen). Esa distinción importa: si el alumno
+        // tiene más de un intento, la "mejor nota" puede venir de OTRO
+        // intento distinto a este -- y si más adelante se borran o agregan
+        // intentos, ese valor cambia, pero el texto del mensaje (guardado
+        // una sola vez acá) nunca se regenera solo. Calculándolo desde el
+        // propio intento, el mensaje queda siempre correcto para lo que
+        // realmente le pasó a ESTE intento, sin importar qué pase después
+        // con los demás.
+        $nota_escalada_penalizada = ($examen->sumgrades > 0)
+            ? ($nota_bruta_penalizada / $examen->sumgrades) * $examen->grade
+            : 0;
+
         $nota_orig_fmt = number_format($nota_escalada_original, 2);
-        $nueva_nota_fmt = number_format($nueva_nota_escalada, 2);
+        $nueva_nota_fmt = number_format($nota_escalada_penalizada, 2);
         $mensaje = "Nota original calculada: {$nota_orig_fmt}. Se aplicó una deducción del {$porcentaje_penalizacion}% por entrega tardía (período de gracia). Nota ajustada: {$nueva_nota_fmt}.";
 
         require_once($CFG->libdir . '/gradelib.php');
