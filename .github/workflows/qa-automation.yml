@@ -86,6 +86,24 @@ jobs:
             --name=lang \
             --set=es
 
+      - name: Asegurar que el paquete de idioma español esté instalado
+        # Distinto del paso anterior: cfg.php solo apunta $CFG->lang a "es",
+        # pero no descarga el paquete en sí. En una CI fresca esto no debería
+        # hacer falta (install_database.php --lang=es ya lo descarga), pero
+        # queda como refuerzo explícito por si alguna vez la corrida no
+        # arranca de una base 100% vacía -- un sitio apuntado a un idioma sin
+        # paquete instalado cae en silencio de vuelta a inglés, sin ningún
+        # error visible. Confirmado contra
+        # admin/tool/langimport/classes/controller.php.
+        run: |
+          docker compose exec -T -u www-data moodle php -r '
+          define("CLI_SCRIPT", true);
+          require("/var/www/html/config.php");
+          $controlador = new \tool_langimport\controller();
+          $controlador->install_languagepacks(["es"]);
+          echo "Paquete de idioma es instalado.\n";
+          '
+
       - name: Configurar la URL del webhook (Cambio 3)
         # receptor.php vive en el mismo contenedor: hace de "sistema externo"
         # para poder probar el Cambio 3 end-to-end sin depender de un

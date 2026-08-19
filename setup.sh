@@ -66,6 +66,23 @@ echo "=== 5/8 · Forzando español como idioma por defecto del sitio ==="
 # que crea el script de seed después, sin preferencia propia.
 docker compose exec -T -u www-data moodle php admin/cli/cfg.php --name=lang --set=es
 
+echo "=== 5b/8 · Asegurando que el paquete de idioma español esté instalado ==="
+# Distinto del paso anterior: cfg.php solo apunta $CFG->lang a "es", pero no
+# descarga el paquete. En una base YA instalada de antes (donde
+# install_database.php se salteó por "ya existentes"), el paquete de idioma
+# nunca se descargó -- y un sitio apuntado a un idioma sin paquete instalado
+# cae en silencio de vuelta a inglés, sin ningún error visible. Se instala
+# explícitamente vía la clase real de Moodle para este fin
+# (tool_langimport\controller::install_languagepacks), confirmado contra
+# admin/tool/langimport/classes/controller.php.
+docker compose exec -T -u www-data moodle php -r '
+define("CLI_SCRIPT", true);
+require("/var/www/html/config.php");
+$controlador = new \tool_langimport\controller();
+$controlador->install_languagepacks(["es"]);
+echo "Paquete de idioma es instalado.\n";
+'
+
 echo "=== 6/8 · Configurando la URL del webhook (Cambio 3) ==="
 # receptor.php vive en el mismo contenedor: hace de "sistema externo" para
 # poder probar el Cambio 3 end-to-end sin depender de un tercero real.

@@ -56,6 +56,24 @@ docker compose exec -T -u www-data moodle php admin/cli/upgrade.php --non-intera
 Write-Host "=== 4/7 - Forzando espanol como idioma por defecto del sitio ===" -ForegroundColor Cyan
 docker compose exec -T -u www-data moodle php admin/cli/cfg.php --name=lang --set=es
 
+Write-Host "=== 4b/7 - Asegurando que el paquete de idioma espanol este instalado ===" -ForegroundColor Cyan
+# Distinto del paso anterior: cfg.php solo apunta $CFG->lang a "es", pero no
+# descarga el paquete. En una base YA instalada de antes (donde
+# install_database.php se salteo por "ya existentes"), el paquete de idioma
+# nunca se descargo -- y un sitio apuntado a un idioma sin paquete instalado
+# cae en silencio de vuelta a ingles, sin ningun error visible. Se instala
+# explicitamente via la clase real de Moodle para este fin
+# (tool_langimport\controller::install_languagepacks), confirmado contra
+# admin/tool/langimport/classes/controller.php.
+$scriptInstalarIdioma = @'
+define("CLI_SCRIPT", true);
+require("/var/www/html/config.php");
+$controlador = new \tool_langimport\controller();
+$controlador->install_languagepacks(["es"]);
+echo "Paquete de idioma es instalado.\n";
+'@
+docker compose exec -T -u www-data moodle php -r $scriptInstalarIdioma
+
 Write-Host "=== 5/7 - Configurando la URL del webhook (Cambio 3) ===" -ForegroundColor Cyan
 docker compose exec -T -u www-data moodle php admin/cli/cfg.php `
   --component=local_mejoras_examen `
