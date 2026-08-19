@@ -143,6 +143,18 @@ export class QuizSettingsPage {
       await this.aplicarOpcionesRevision(datos.reviewOptions);
     }
 
+    // Forzado siempre, no como opción: sin esto, la visibilidad del examen
+    // depende de un default de sitio (id_visible, confirmado contra
+    // lib/form/modvisible.php: SHOW=1, HIDE=0) que en algunas instancias
+    // puede ser "oculto" -- dejando al alumno sin poder ver ni el examen en
+    // el curso ni su propia nota en el libro de calificaciones, aunque la
+    // nota exista realmente del lado del servidor. Ningún test de la suite
+    // necesita que un examen quede oculto.
+    const campoVisible = this.page.locator('#id_visible');
+    if ((await campoVisible.count()) > 0) {
+      await campoVisible.selectOption('1');
+    }
+
     await this.page.locator('#id_submitbutton, input[name="submitbutton"]').first().click();
 
     // Assert real de que Moodle aceptó el formulario y navegó a la vista del
