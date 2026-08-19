@@ -44,7 +44,7 @@ o, en PowerShell:
 Deja Moodle instalado (con los plugins, en español, con el webhook del
 Cambio 3 configurado) y la suite de QA lista (`npm install` +
 navegador de Playwright instalados). Al final imprime la contraseña de
-admin que quedó configurada.
+admin que quedó configurada!.
 
 Si preferís elegir vos la contraseña de admin en vez de la que trae por
 defecto:
