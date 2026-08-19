@@ -160,7 +160,7 @@ Para que la CI corra, hace falta cargar un secret una sola vez en el repo de
 GitHub (`QA_ADMIN_PASSWORD`) — ver `LEEME-CI.md` para el paso a paso.
 
 Ver `.github/workflows/qa-automation.yml` para el detalle del workflow, y la
-pestaña Actions del repo para corridas reales ya ejecutadas.
+pestaña Actions del repo para corridas reales ya ejecutadas!.
 
 ## Más documentación
 
