@@ -29,6 +29,15 @@ test.describe('Scope 1 · Crear y configurar un examen', () => {
       graceperiodSeconds: 300,
       attempts: 2,
       grademethod: GradeMethod.Highest,
+      // Fijado explícito, no depende del default de sitio (mod_quiz >
+      // questionsperpage, que puede variar entre instancias) -- toda la
+      // suite asume navegación de a una pregunta por página
+      // (StudentAttemptPage recorre página por página).
+      questionsPerPage: '1',
+      // Sin esto, el alumno puede quedar sin autorización para ver
+      // review.php justo después de enviar, dependiendo del default de
+      // sitio -- confirmado contra la instancia real.
+      reviewOptions: { attemptimmediately: true, correctnessimmediately: true },
     };
 
     await quizPage.completarYGuardar(configuracionEsperada);

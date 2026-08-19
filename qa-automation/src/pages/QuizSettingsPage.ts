@@ -25,12 +25,32 @@ export interface QuizSettingsInput {
   /** 0 = intentos ilimitados. */
   attempts?: number;
   grademethod?: GradeMethod;
+  /**
+   * Preguntas por página ('1' = una por página). Sin esto, el valor sale de
+   * una configuración de sitio (mod_quiz > questionsperpage), que puede
+   * variar entre instancias -- toda la suite asume "una por página" para
+   * poder navegar de a una (StudentAttemptPage), así que conviene fijarlo
+   * explícito en vez de depender de ese default.
+   */
+  questionsPerPage?: string;
   /** Contraseña requerida para iniciar un intento (campo "quizpassword"). */
   password?: string;
   /** Fecha/hora de apertura del examen. */
   timeopen?: Date;
   /** Fecha/hora de cierre del examen. */
   timeclose?: Date;
+  /**
+   * Opciones de revisión a configurar en el MISMO envío inicial del
+   * formulario (evita un round-trip separado, ver
+   * configurarOpcionesRevision para el formato de claves). Como mínimo,
+   * "attemptimmediately: true" es necesario para que el alumno pueda llegar
+   * a review.php justo después de enviar -- sin esto, depende de un default
+   * de sitio que en algunas instancias no permite revisión inmediata
+   * (confirmado contra la instancia real: sin este campo, Moodle redirige a
+   * "No está autorizado para revisar este cuestionario" en vez de mostrar
+   * la revisión).
+   */
+  reviewOptions?: Record<string, boolean>;
 }
 
 export interface QuizSettingsPersisted {
@@ -86,6 +106,10 @@ export class QuizSettingsPage {
       await this.page.locator('#id_grademethod').selectOption(datos.grademethod);
     }
 
+    if (datos.questionsPerPage !== undefined) {
+      await this.page.locator('#id_questionsperpage').selectOption(datos.questionsPerPage);
+    }
+
     if (datos.password !== undefined) {
       // El campo de contraseña arranca oculto (class="d-none") detrás de un
       // link "Haz click para insertar texto" -- comportamiento "unmask" del
@@ -113,6 +137,10 @@ export class QuizSettingsPage {
 
     if (datos.timeclose) {
       await this.seleccionarFechaHora('timeclose', datos.timeclose);
+    }
+
+    if (datos.reviewOptions) {
+      await this.aplicarOpcionesRevision(datos.reviewOptions);
     }
 
     await this.page.locator('#id_submitbutton, input[name="submitbutton"]').first().click();
@@ -201,7 +229,17 @@ export class QuizSettingsPage {
   async configurarOpcionesRevision(cmId: number, opciones: Record<string, boolean>) {
     await this.page.goto(`/course/modedit.php?update=${cmId}&return=1`);
     await this.expandirTodasLasSecciones();
+    await this.aplicarOpcionesRevision(opciones);
+    await this.page.locator('#id_submitbutton, input[name="submitbutton"]').first().click();
+    await expect(this.page).toHaveURL(/mod\/quiz\/view\.php\?id=\d+/, { timeout: 15_000 });
+  }
 
+  /**
+   * Tilda/destilda los campos de opciones de revisión indicados (asume que
+   * las secciones ya están expandidas). Compartido entre completarYGuardar
+   * (durante la creación) y configurarOpcionesRevision (edición aparte).
+   */
+  private async aplicarOpcionesRevision(opciones: Record<string, boolean>) {
     for (const [campo, valor] of Object.entries(opciones)) {
       const checkbox = this.page.locator(`#id_${campo}`);
 
@@ -227,9 +265,6 @@ export class QuizSettingsPage {
         await checkbox.uncheck();
       }
     }
-
-    await this.page.locator('#id_submitbutton, input[name="submitbutton"]').first().click();
-    await expect(this.page).toHaveURL(/mod\/quiz\/view\.php\?id=\d+/, { timeout: 15_000 });
   }
 
   /** Relee del formulario el estado actual de los campos de revisión indicados. */

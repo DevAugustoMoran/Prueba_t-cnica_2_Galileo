@@ -43,6 +43,7 @@ test.describe('Cambio 4 · Penalización por período de gracia', () => {
         overdueHandling: OverdueHandling.GracePeriod,
         graceperiodSeconds: 120,
         attempts: 1,
+        reviewOptions: { attemptimmediately: true, correctnessimmediately: true },
       });
       return quizSettingsPage.obtenerCmIdDeUrlActual();
     });

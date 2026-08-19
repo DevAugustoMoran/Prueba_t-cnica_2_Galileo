@@ -37,6 +37,7 @@ test.describe('Cambio 3 · Notificación de resultado a sistema externo', () => 
       await quizSettingsPage.completarYGuardar({
         name: 'Examen QA E2E - Webhook',
         attempts: 1,
+        reviewOptions: { attemptimmediately: true, correctnessimmediately: true },
       });
       return quizSettingsPage.obtenerCmIdDeUrlActual();
     });

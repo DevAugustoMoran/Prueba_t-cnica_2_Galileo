@@ -41,6 +41,7 @@ test.describe('Scope 7 · Límite de tiempo y auto-envío al expirar', () => {
         timelimitSeconds: TIMELIMIT_SEGUNDOS,
         overdueHandling: OverdueHandling.Autosubmit,
         attempts: 1,
+        reviewOptions: { attemptimmediately: true, correctnessimmediately: true },
       });
       return quizSettingsPage.obtenerCmIdDeUrlActual();
     });
