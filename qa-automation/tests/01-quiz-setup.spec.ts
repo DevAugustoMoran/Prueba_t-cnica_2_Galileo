@@ -37,7 +37,7 @@ test.describe('Scope 1 · Crear y configurar un examen', () => {
       // Sin esto, el alumno puede quedar sin autorización para ver
       // review.php justo después de enviar, dependiendo del default de
       // sitio -- confirmado contra la instancia real.
-      reviewOptions: { attemptimmediately: true, correctnessimmediately: true },
+      reviewOptions: { attemptimmediately: true, correctnessimmediately: true, maxmarksopen: true, marksopen: true },
     };
 
     await quizPage.completarYGuardar(configuracionEsperada);

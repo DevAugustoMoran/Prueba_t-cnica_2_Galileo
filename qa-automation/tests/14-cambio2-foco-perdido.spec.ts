@@ -33,7 +33,7 @@ test.describe('Cambio 2 · Señal de foco perdido', () => {
       await quizSettingsPage.completarYGuardar({
         name: 'Examen QA E2E - Foco',
         attempts: 1,
-        reviewOptions: { attemptimmediately: true, correctnessimmediately: true },
+        reviewOptions: { attemptimmediately: true, correctnessimmediately: true, maxmarksopen: true, marksopen: true },
       });
       return quizSettingsPage.obtenerCmIdDeUrlActual();
     });
