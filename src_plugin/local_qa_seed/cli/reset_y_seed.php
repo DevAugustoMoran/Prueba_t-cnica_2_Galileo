@@ -78,6 +78,13 @@ function qa_obtener_o_crear_usuario(string $username, string $nombre, string $ap
         $usuario->password = $password;
         $usuario->firstname = $nombre;
         $usuario->lastname = $apellido;
+        // Forzado en cada reset, no solo en la creación: si esta cuenta se
+        // creó alguna vez con el sitio en inglés (antes de que existiera el
+        // fix de idioma), la preferencia queda grabada en el usuario y
+        // persiste para siempre -- ningún cambio posterior al idioma del
+        // sitio la corrige sola, porque una preferencia de usuario ya
+        // guardada pisa el default del sitio.
+        $usuario->lang = 'es';
         user_update_user($usuario, true, false);
         cli_writeln('Usuario "' . $username . '" ya existía, se actualizó.');
         return $DB->get_record('user', ['id' => $usuario->id]);
@@ -92,6 +99,7 @@ function qa_obtener_o_crear_usuario(string $username, string $nombre, string $ap
     $nuevo->confirmed = 1;
     $nuevo->mnethostid = $CFG->mnet_localhost_id;
     $nuevo->auth = 'manual';
+    $nuevo->lang = 'es';
     $id = user_create_user($nuevo, true, false);
     cli_writeln('Usuario "' . $username . '" creado (id=' . $id . ').');
     return $DB->get_record('user', ['id' => $id]);
